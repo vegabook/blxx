@@ -12,7 +12,7 @@ defmodule BlxxWeb.Endpoint do
   ]
 
   socket "/live", Phoenix.LiveView.Socket, websocket: [connect_info: [session: @session_options]]
-  socket "/bbgws", BlxxWeb.BbgSocket, websocket: [connect_info: [session: @session_options]]
+  socket "/bbgws/:id", BlxxWeb.BbgSocket, websocket: [connect_info: [session: @session_options]]
 
   # Serve at "/" the static files from "priv/static" directory.
   #

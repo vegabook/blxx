@@ -1,3 +1,4 @@
 blpapi
 colorama
 python >= 3.8
+cryptography

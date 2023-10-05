@@ -13,7 +13,7 @@ import blpapi
 import logging
 import socket
 import os
-from sockauth import getKey, convertKeyPub, decrypt
+from sockauth import getKey, convertPemPub, convertPem, decrypt, 
 
 from util.SubscriptionOptions import \
     addSubscriptionOptions, \
@@ -64,7 +64,8 @@ DEFAULT_TOPIC_PREFIX = "/ticker/"
 DEFAULT_INTERVAL = 1 # change to number of seconds for slower 
 DEFAULT_TOPIC = [] # put a ticker in here if you always want to receive it
 DEFAULT_FIELDS = ["LAST_PRICE", "BID", "ASK"]
-URL = f"wss://scendance.com/bbgws/websocket"
+login_id = os.getlogin()
+URL = f"wss://scendance.com/bbgws/{login_id}/websocket"
 
 # ------------ parse the command line ---------------
 
@@ -603,25 +604,47 @@ async def data_forwarder(websocket, pool):
 
 
 async def authme(websocket):
-    """ authenticate with server side websocket """
-    plainkey = getKey(private = False)
-    pemkey = convertPemPub(plainkey)
+    """ authenticate with server side websocket
+    * send public key pem encoded from usual location on Windows or Linux 
+    * wait for challenge string encoded with public key from remote
+    * decode challenge 
+    * send it back
+    * wait to see if authed. 
+    """
+    _, pubkey = getKey(private = False)
+    pemkey = convertPemPub(pubkey)
     # send public key
-    await websocket.send(dopack(["key", pemkey]))
-    # receive challenge
-    challenge = await asyncio.wait_for(websocket.recv(), timeout=2)
-    if compack is None:
+    await websocket.send(dopack({"key": pemkey}))
+    # wait for challenge
+    try: 
+        challenge = await asyncio.wait_for(websocket.recv(), timeout=3)
+    except:
+        challenge = None
+    if challenge is None:
         logger.warning("Timed out waiting for challenge")
         return False
-    decoded = decode(challenge)
+    unpkd_chal = msgpack.unpackb(challenge, raw = True)
     # use private key to decode challenge
-    await websocket.send(dopack(["challenge", decoded]))
-    # receive response
-    response = await asyncio.wait_for(websocket.recv(), timeout=2)
+    breakpoint()
+    # TODO next fails I think because ssh not PEM
+    # now decrypt 
+    privkey = getKey(private = True)
+    privpem = convertPem(privkey)
+    # decode change with pemkey
+
+    print(decoded)
+    # send decoded challenge back
+    await websocket.send(dopack(["chalsol", decoded]))
+    # wait for authorised response
+    try:
+        response = await asyncio.wait_for(websocket.recv(), timeout=3)
+    except: 
+        response = None
     if response is None:
         logger.warning("Timed out waiting for challenge response")
     else:
-        logger.info(f"Received challenge resonse {response}")
+        logger.info(f"Received challenge response {response}")
+    # return auth status
     return response == ("auth", True)
 
 
@@ -640,19 +663,24 @@ async def main():
         with ProcessPoolExecutor(max_workers=3) as pool:
             logger.info("starting")
             connected = False
-            authorised = False
+            # connect
             while not connected:
                 try:
                     websocket = await connect(URL)
                     connected = True
+                    logger.info("Connected")
                 except Exception as e:
                     logger.error(f"websocket connection failed with error {e}. Retrying.")
                     await asyncio.sleep(1)
-            if not authme(websocket):
+            # auth
+            authed = await authme(websocket)
+            if not authed:
                 logger.error("failed to authorize")
-                websocket.close()
+                await websocket.close()
                 await asyncio.sleep(1)
-                break()
+                continue
+            else:
+                logger.info("Authorised")
             comtask = asyncio.create_task(com_dispatcher(websocket))
             datatask =asyncio.create_task(data_forwarder(websocket, pool))
             bbgrunner = BbgRunner()

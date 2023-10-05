@@ -6,7 +6,6 @@ from cryptography.hazmat.primitives import serialization, hashes
 from cryptography.hazmat.primitives.asymmetric import padding
 from cryptography.hazmat.backends import default_backend
 
-testnonce = "12345abcde"
 
 # read my public or private key id_rsa.pub under Windows
 def getKey(private = False, keydir = None):
@@ -37,6 +36,7 @@ def getKey(private = False, keydir = None):
                 fdata,
                 backend = default_backend())
         return fdata, publickey
+
 
 def convertPem(privatekey):
     """ convert rsa key to pem """
@@ -79,13 +79,13 @@ def decrypt(data: bytes) -> str:
 
 
 if __name__ == "__main__":
+    testnonce = b"hello"
     pubtext, pubenc = getKey(private=False)
     print(pubtext, pubenc)
-    privkey = getKey(Private=True)
-    print(decrypt(encrypt(testnonce, pubenc), privkey))
-
+    privkey = getKey(private=True)
     print(convertPem(privkey))
     print(convertPemPub(pubenc))
+    print(decrypt(encrypt(testnonce, pubenc)))
 
 
 
