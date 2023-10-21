@@ -1,4 +1,7 @@
-blpapi
 colorama
-python >= 3.8
 cryptography
+msgpack
+websockets
+sockauth
+#blpapi # needs bloomberg url
+

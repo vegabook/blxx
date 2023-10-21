@@ -13,7 +13,7 @@ import blpapi
 import logging
 import socket
 import os
-from sockauth import getKey, convertPemPub, convertPem, decrypt, 
+from sockauth import getKey, convertPemPub, convertPem, decrypt
 
 from util.SubscriptionOptions import \
     addSubscriptionOptions, \
