@@ -13,7 +13,7 @@ import blpapi
 import logging
 import socket
 import os
-from sockauth import getKey, convertPemPub, convertPem, decrypt
+from sockauth import getKey
 
 from util.SubscriptionOptions import \
     addSubscriptionOptions, \
@@ -611,31 +611,10 @@ async def authme(websocket):
     * send it back
     * wait to see if authed. 
     """
-    _, pubkey = getKey(private = False)
-    pemkey = convertPemPub(pubkey)
-    # send public key
+    key = getKey(private = False).public_numbers().n
+    print(key)
     await websocket.send(dopack({"key": pemkey}))
     # wait for challenge
-    try: 
-        challenge = await asyncio.wait_for(websocket.recv(), timeout=3)
-    except:
-        challenge = None
-    if challenge is None:
-        logger.warning("Timed out waiting for challenge")
-        return False
-    unpkd_chal = msgpack.unpackb(challenge, raw = True)
-    # use private key to decode challenge
-    breakpoint()
-    # TODO next fails I think because ssh not PEM
-    # now decrypt 
-    privkey = getKey(private = True)
-    privpem = convertPem(privkey)
-    # decode change with pemkey
-
-    print(decoded)
-    # send decoded challenge back
-    await websocket.send(dopack(["chalsol", decoded]))
-    # wait for authorised response
     try:
         response = await asyncio.wait_for(websocket.recv(), timeout=3)
     except: 
@@ -644,7 +623,6 @@ async def authme(websocket):
         logger.warning("Timed out waiting for challenge response")
     else:
         logger.info(f"Received challenge response {response}")
-    # return auth status
     return response == ("auth", True)
 
 
