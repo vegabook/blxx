@@ -617,7 +617,8 @@ async def connected(urlmask):
     * wait to see if authed. 
     """
     id = os.getlogin().replace(" ", "_")
-    key = getKey(private = False).public_numbers().n
+    key = getKey(private = False,
+                 keypath = options.keypath).public_numbers().n
     url = urlmask.format(id, key)
     try:
         websocket = await wsconnect(url)
@@ -682,7 +683,8 @@ async def main():
 
 if __name__ == "__main__":
     if options.showkey:
-        print(getKey(private = False).public_numbers().n)
+        print(getKey(private = False, 
+                     keypath = options.keypath).public_numbers().n)
     else:
         asyncio.run(main())
     

@@ -20,8 +20,11 @@ See the [Bloomberg API manual](https://data.bloomberglp.com/professional/sites/1
 
 ### Instructions and usage
 
+#### Concepts
+The client is a Windows computer running a licenced Bloomberg terminal or BPIPE. The server is a computer running Linux or MacOS. _Unless you are licensed for BPIPE, these should be the same computer (with either client or server in virtual machine).  
+
 #### Keys
-Run `bbgfeeder.py --showkey` on the Windows computer running bLoomberg, and ensure environment variable `BLXXKEY` Elixir-side contains this value. This is used for basic authentication. 
+Run `bbgfeeder.py --showkey` on the Windows client running BLoomberg Terminal / BPIPE, ensuring that environment variable `BLXXKEY` on the server contains this value. This is used for basic authentication. The fully qualified public key path can be manually specified with the `keypath` command line argument. 
 
 
 ### Implementation
