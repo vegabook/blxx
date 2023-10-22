@@ -19,7 +19,10 @@ This is a heavy work in progress. However it does now handle live subscriptions 
 See the [Bloomberg API manual](https://data.bloomberglp.com/professional/sites/10/2017/03/BLPAPI-Core-Developer-Guide.pdf) for further information on these request types. 
 
 ### Instructions and usage
-Full documentation incoming. 
+
+#### Keys
+Run `bbgfeeder.py --showkey` on the Windows computer running bLoomberg, and ensure environment variable `BLXXKEY` Elixir-side contains this value. This is used for basic authentication. 
+
 
 ### Implementation
 Blxx implements a raw websocket server using Phoenix Transport in Elixir (example [here](https://furlough.merecomplexities.com/elixir/phoenix/tutorial/2021/02/19/binary-websockets-with-elixir-phoenix.html)), which is connected to by a python process [`bbgfeeder.py`](/clients/bbg/bbgfeeder.py). Elixir can send subscription and historical data requests, and receive the responses from 

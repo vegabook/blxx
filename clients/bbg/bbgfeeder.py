@@ -7,7 +7,7 @@ from concurrent.futures import ProcessPoolExecutor
 import msgpack
 from queue import Queue, Empty
 import asyncio
-from websockets.client import connect
+from websockets.client import connect as wsconnect
 from argparse import ArgumentParser, RawTextHelpFormatter
 import blpapi
 import logging
@@ -64,8 +64,7 @@ DEFAULT_TOPIC_PREFIX = "/ticker/"
 DEFAULT_INTERVAL = 1 # change to number of seconds for slower 
 DEFAULT_TOPIC = [] # put a ticker in here if you always want to receive it
 DEFAULT_FIELDS = ["LAST_PRICE", "BID", "ASK"]
-login_id = os.getlogin()
-URL = f"wss://scendance.com/bbgws/{login_id}/websocket"
+URLMASK = "wss://scendance.com/bbgws/{}/{}/websocket"
 
 # ------------ parse the command line ---------------
 
@@ -89,11 +88,17 @@ def parseCmdLine():
         dest="keypath",
         help="Fully qualified public key path",
         type=str)
+    parser.add_argument(
+        "--showkey",
+        action="store_true",
+        help=("Show public key in numeric format for auth. "
+              "Must be put in BLXXKEY env variable on server"),
+        default=False)
     options = parser.parse_args()
     options.options.append(f"interval={DEFAULT_INTERVAL}")
     return options
 
-options = parseCmdLine
+options = parseCmdLine()
 
 # -------------- msgpack python datetime and time handler --------------
 
@@ -603,7 +608,7 @@ async def data_forwarder(websocket, pool):
                     logger.error("websocket send failed")
 
 
-async def authme(websocket):
+async def connected(urlmask):
     """ authenticate with server side websocket
     * send public key pem encoded from usual location on Windows or Linux 
     * wait for challenge string encoded with public key from remote
@@ -611,19 +616,15 @@ async def authme(websocket):
     * send it back
     * wait to see if authed. 
     """
+    id = os.getlogin().replace(" ", "_")
     key = getKey(private = False).public_numbers().n
-    print(key)
-    await websocket.send(dopack({"key": pemkey}))
-    # wait for challenge
+    url = urlmask.format(id, key)
     try:
-        response = await asyncio.wait_for(websocket.recv(), timeout=3)
-    except: 
-        response = None
-    if response is None:
-        logger.warning("Timed out waiting for challenge response")
-    else:
-        logger.info(f"Received challenge response {response}")
-    return response == ("auth", True)
+        websocket = await wsconnect(url)
+        return websocket 
+    except Exception as e:
+        logger.warning(f"websocket connection failed: {e}")
+        return False
 
 
 async def main():
@@ -634,31 +635,16 @@ async def main():
     connection
     """
     global subs
-    licenceCheck(URL)
+    licenceCheck(URLMASK)
     while not exitevent.is_set():
         subs = set() # empty subscriptions
         stopevent.clear() # ensure stopevent unset
         with ProcessPoolExecutor(max_workers=3) as pool:
-            logger.info("starting")
-            connected = False
-            # connect
-            while not connected:
-                try:
-                    websocket = await connect(URL)
-                    connected = True
-                    logger.info("Connected")
-                except Exception as e:
-                    logger.error(f"websocket connection failed with error {e}. Retrying.")
-                    await asyncio.sleep(1)
-            # auth
-            authed = await authme(websocket)
-            if not authed:
-                logger.error("failed to authorize")
-                await websocket.close()
+            # connect and auth
+            while not (websocket := await connected(URLMASK)):
                 await asyncio.sleep(1)
-                continue
-            else:
-                logger.info("Authorised")
+            logger.info("Connected and authorised")
+            # create all the tasks
             comtask = asyncio.create_task(com_dispatcher(websocket))
             datatask =asyncio.create_task(data_forwarder(websocket, pool))
             bbgrunner = BbgRunner()
@@ -695,6 +681,9 @@ async def main():
 
 
 if __name__ == "__main__":
-    asyncio.run(main())
+    if options.showkey:
+        print(getKey(private = False).public_numbers().n)
+    else:
+        asyncio.run(main())
     
 

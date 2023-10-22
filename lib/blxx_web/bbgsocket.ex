@@ -12,40 +12,32 @@ defmodule BlxxWeb.BbgSocket do
 
   @encrypt_decrypt_opts [rsa_padding: :rsa_pkcs1_oaep_padding]
 
+
   def child_spec(_opts) do
     # We won't spawn any process, so let's return a dummy task
     %{id: Task, start: {Task, :start_link, [fn -> :ok end]}, restart: :transient}
   end
 
-  def connect(%{params: %{"id" => id}}) do
+
+  def connect(%{params: %{"id" => id, "key" => key}}) do
     # Callback to retrieve relevant data from the connection.
     # The map contains options, params, transport and endpoint keys.
-    IO.puts "ID connected: #{id}"
-    {:ok, %{number: 1}} # = {:ok, state} else {:error, :unauthorized}
+    if key != System.get_env("BLXXKEY") do
+      IO.puts "Key is not correct"
+      {:error, :unauthorized}
+    else 
+      IO.puts "Connected #{id}"
+      {:ok, %{id: id}} 
+    end
   end
 
+
   def init(state) do
-    # Now we are effectively inside the process that maintains the socket.
-    IO.inspect self()
-    #send(self(), :sendback)
-    # use the Registry to register the pid
+    # register this pid with the registry
     Registry.register(Blxx.Registry, :bbgsocket_pid, self())
     {:ok, state}
   end
 
-  def handle_in(["key", key], state) do
-    IO.puts "Received key: #{inspect key}"
-    # generate random bytes
-    #challenge = :crypto.strong_rand_bytes(256)
-    # encrypt the challenge with the key
-    # encrypted_challenge = :crypto.block_encrypt(:aes_cbc256, key, challenge)
-    {:ok, key_der} = :public_key.pem_decode(key)
-    public_key = :public_key.der_decode(:RSAPublicKey, key_der)
-    ciphertext = :public_key.encrypt(:rsa_pkcs1_padding, public_key, "hello")
-    IO.inspect ciphertext
-
-    {:noreply, state}
-  end
 
   def handle_in({data, _opts}, state) do
     d = Msgpax.unpack!(data)
@@ -102,6 +94,13 @@ defmodule BlxxWeb.BbgSocket do
     {:ok, state}
   end
 
+
+  def handle_out({any_old_thing, _opts}, state) do
+    IO.puts "Received out: #{inspect any_old_thing}"
+    {:ok, state}
+  end
+
+
   def handle_info({:challenge, challenge}, state) do
     # send the challenge back
     cpack = Msgpax.pack!(%{"challenge" => challenge})
@@ -114,18 +113,22 @@ defmodule BlxxWeb.BbgSocket do
     {:push, {:text, Msgpax.pack!({"hello", "there"})}, %{state | number: number + 1}}
   end
 
+
   def handle_info({:com, command}, state) do
     IO.puts "Received command: #{inspect command}"
     {:push, {:binary, Msgpax.pack!(command)}, state}
   end
     
+
   def handle_info(m, state) do
     IO.puts "Received default handler message: #{inspect m}"
     {:ok, state}
   end
 
+
   def terminate(_reason, _state) do
     :ok
   end
+
 end
 
