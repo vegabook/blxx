@@ -10,8 +10,6 @@ defmodule BlxxWeb.BbgSocket do
   alias Blxx.Bar
   alias Blxx.Repo
 
-  @encrypt_decrypt_opts [rsa_padding: :rsa_pkcs1_oaep_padding]
-
 
   def child_spec(_opts) do
     # We won't spawn any process, so let's return a dummy task
@@ -41,6 +39,7 @@ defmodule BlxxWeb.BbgSocket do
 
   def handle_in({data, _opts}, state) do
     d = Msgpax.unpack!(data)
+
     case d do
 
       %{"subdata" => %{"timestamp" => timestamp,
@@ -48,8 +47,7 @@ defmodule BlxxWeb.BbgSocket do
         "prices" => prices}} ->
           for %{"field" => field, "value" => value} <- prices do
             %Tick{source: "bbg", topic: topic, fld: field, value: value, timestamp: timestamp}
-            |> Tick.changeset
-            |> Repo.insert
+            |> IO.inspect
           end
 
       %{"ping" => _timestamp} -> :ok
@@ -74,8 +72,7 @@ defmodule BlxxWeb.BbgSocket do
             close: close, 
             volume: volume,
             timestamp: timestamp}
-          |> Bar.changeset
-          |> Repo.insert  
+          |> IO.inspect
 
       %{"info" => %{"request_type" => request_type, "structure" => structure}} -> 
         IO.puts request_type
@@ -91,12 +88,6 @@ defmodule BlxxWeb.BbgSocket do
       junk -> IO.inspect junk
 
     end
-    {:ok, state}
-  end
-
-
-  def handle_out({any_old_thing, _opts}, state) do
-    IO.puts "Received out: #{inspect any_old_thing}"
     {:ok, state}
   end
 
