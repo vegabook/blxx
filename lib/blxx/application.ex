@@ -21,7 +21,11 @@ defmodule Blxx.Application do
       # Start a worker by calling: Blxx.Worker.start_link(arg)
       # {Blxx.Worker, arg}
       # Start the Registry
-      {Registry, keys: :unique, name: Blxx.Registry}
+      {Registry, keys: :unique, name: Blxx.Registry},
+      # Start the DynSupervisor
+      {Blxx.DynSupervisor, name: DynSupervisor},
+      # start the dag genserver
+      {Blxx.Dag, name: Dag}
     ]
 
     # See https://hexdocs.pm/elixir/Supervisor.html
