@@ -1,5 +1,6 @@
 defmodule BlxxWeb.BbgSocket do
   @behaviour Phoenix.Socket.Transport
+  @resp_ref 1
   @moduledoc """
   This module implements the Phoenix.Socket.Transport behaviour for a websocket
   to communicate with the bloomberg terminal. 
@@ -38,21 +39,38 @@ defmodule BlxxWeb.BbgSocket do
 
 
   def handle_in({data, _opts}, state) do
-    d = Msgpax.unpack!(data)
+    # unpack 8 byte msgpack size header
+    # TODO this checking the header is taking ages
+    # not sure if shouldn't just process ALL messages in a pool 
+    # and forget about differentiating
+    <<header::binary-size(8), message::binary>> = data
+    <<msgtype::little-integer-size(64)>> = header
+
+    d = 
+      if msgtype == @resp_ref do
+        spawn(fn -> 
+          Msgpax.unpack!(message)
+        end)
+        ["info", "message is of type reference"]
+      else
+        Msgpax.unpack!(message)
+      end
 
     case d do
 
-      %{"subdata" => %{"timestamp" => timestamp,
+      ["subdata", 
+        %{"timestamp" => timestamp,
         "topic" => topic,
-        "prices" => prices}} ->
+        "prices" => prices}] ->
           for %{"field" => field, "value" => value} <- prices do
             %Tick{source: "bbg", topic: topic, fld: field, value: value, timestamp: timestamp}
             |> IO.inspect
           end
 
-      %{"ping" => _timestamp} -> :ok
+      ["ping", _timestamp] -> :ok
 
-      %{"bardata" => %{"msgtype" => msgtype,
+      ["bardata", 
+        %{"msgtype" => msgtype,
         "topic" => topic,
         "interval" => interval,
         "numticks" => numticks,
@@ -61,7 +79,7 @@ defmodule BlxxWeb.BbgSocket do
         "low" => low,
         "close" => close,
         "volume" => volume,
-        "timestamp" => timestamp}} -> %Bar{source: "bbg",
+        "timestamp" => timestamp}] -> %Bar{source: "bbg",
             msgtype: msgtype, 
             topic: topic, 
             interval: interval, 
@@ -74,18 +92,16 @@ defmodule BlxxWeb.BbgSocket do
             timestamp: timestamp}
           |> IO.inspect
 
-      %{"info" => %{"request_type" => request_type, "structure" => structure}} -> 
+      ["info", %{"request_type" => request_type, "structure" => structure}] -> 
         IO.puts request_type
         IO.puts structure
 
-      %{"key" => key} -> 
-        IO.puts "Received key: #{IO.inspect key}"
-        [enc_key] = :public_key.pem_decode(key)
-        dkey = :public_key.pem_entry_decode(enc_key)
-        challenge = :public_key.encrypt_public("hello", dkey, [rsa_padding: :rsa_pkcs1_oaep_padding])
-        send(self(), {:challenge, challenge})
+      ["info", infomsg] -> 
+        IO.inspect infomsg
 
-      junk -> IO.inspect junk
+      anything -> 
+        IO.inspect anything
+        :ok
 
     end
     {:ok, state}

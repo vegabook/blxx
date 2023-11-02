@@ -14,6 +14,7 @@ import logging
 import socket
 import os
 from sockauth import getKey
+import struct
 
 from util.SubscriptionOptions import \
     addSubscriptionOptions, \
@@ -150,6 +151,14 @@ async def msgpacker(obj, pool, trytimes = 3, dozetime = 0.01):
     return None
 
 
+def headerpack(msg: str, headerval: int):
+    """
+    prepends an 8-byte message header to msg
+    """
+    return struct.pack("Q", headerval) + msg
+
+
+
 # ---------------- check URL for localhost and display licence warning --------------------
 
 def licenceCheck(url):
@@ -196,7 +205,7 @@ class HistoricEventHandler(object):
             cid = msg.correlationId().value()
             logger.info((f"Received response to request {msg.getRequestId()} "
                         f"partial {partial}"))
-            sendmsg = {RESP_REF: {"cid": cid, "partial": partial, "data": msg.toPy()}}
+            sendmsg = (RESP_REF, {"cid": cid, "partial": partial, "data": msg.toPy()})
             dataq.put(sendmsg)
 
 
@@ -232,17 +241,17 @@ class SubscriptionEventHandler(object):
         for msg in event:
             topic = msg.correlationId().value()
             if msg.messageType() == blpapi.Names.SUBSCRIPTION_FAILURE:
-                sendmsg = {RESP_STATUS: (str(msg.messageType()), topic)}
+                sendmsg = (RESP_STATUS, (str(msg.messageType()), topic))
             elif msg.messageType() == blpapi.Names.SUBSCRIPTION_TERMINATED:
                 correl = msg.correlationId().value()
                 subs.remove(correl)
                 print(f"!!!!!!! sub terminated for {correl}")
                 stopevent.set()
-                sendmsg = {RESP_STATUS: (str(msg.messageType()), topic)}
+                sendmsg = (RESP_STATUS, (str(msg.messageType()), topic))
             elif msg.messageType() == blpapi.Names.SUBSCRIPTION_STARTED:
                 correl = msg.correlationId().value()
                 subs.add(correl)
-                sendmsg = {RESP_STATUS: (str(msg.messageType()), topic)}
+                sendmsg = (RESP_STATUS, (str(msg.messageType()), topic))
             dataq.put(sendmsg)
 
     def searchMsg(self, msg, fields):
@@ -280,17 +289,17 @@ class SubscriptionEventHandler(object):
                            blpapi.Name("MarketBarStart"),
                            blpapi.Name("MarketBarEnd"),
                            blpapi.Name("MarketBarIntervalEnd")):
-                sendmsg = {RESP_BAR: self.makeBarMessage(msg, str(msgtype), 
-                                                          topic, interval = 1)}
+                sendmsg = (RESP_BAR, self.makeBarMessage(msg, str(msgtype), 
+                                                          topic, interval = 1))
                 dataq.put(sendmsg)
 
             # subscription --->
             elif msgtype == blpapi.Name("MarketDataEvents"):
                 # mktdata event type
-                sendmsg = {RESP_SUB:
+                sendmsg = (RESP_SUB, 
                        {"timestamp": timestampdt, 
                        "topic": topic,
-                       "prices": self.searchMsg(msg, DEFAULT_FIELDS)}}
+                       "prices": self.searchMsg(msg, DEFAULT_FIELDS)})
                 dataq.put(sendmsg)
 
             # something else --->
@@ -300,7 +309,7 @@ class SubscriptionEventHandler(object):
 
     def processMiscEvents(self, event):
         for msg in event:
-            sendmsg = {RESP_STATUS: str(msg.messageType())}
+            sendmsg = (RESP_STATUS, str(msg.messageType()))
             dataq.put(sendmsg) 
 
     def processEvent(self, event, _session):
@@ -343,7 +352,7 @@ class BbgRunner():
                                          "studyRequest": "//blp/tasvc",
                                          "SnapshotRequest": "//blp/mktlist"}} # mktlist I think is a sub TODO
 
-        options.topics = [] # options was parsed at begining of code
+        options.topics = [] # options was parsed globally
         options.fields = DEFAULT_FIELDS
 
         # ---------- subscription data session -----------------
@@ -391,7 +400,6 @@ class BbgRunner():
                 return
             logger.info(f"started {servstring} service.")
 
-        # open ref services
 
 
 
@@ -400,14 +408,15 @@ class BbgRunner():
         """ sends back structure information about the request """
         desc = request.asElement().elementDefinition()
         strdesc = desc.toString()
-        sendmsg = {RESP_INFO: {"request_type": command, "structure": strdesc}}
+        sendmsg = (RESP_INFO, {"request_type": command, "structure": strdesc})
         dataq.put(sendmsg)
 
 
     def sendError(self, command, payld, errmsg, errdetail = None):
-        dataq.put({RESP_ERROR: {"command": command,
+        sendmsg = (RESP_ERROR, {"command": command,
                                 "payld": payld,
-                                "error": (errmsg, errdetail)}})
+                                "error": (errmsg, errdetail)})
+        dataq.put(sendmsg)
 
     def commandErrors(self, com):
         try:
@@ -511,7 +520,8 @@ class BbgRunner():
 
 
                 elif command == "ListSubscriptions":
-                    dataq.put(("Status", {"Subscriptions": list(subs)}))
+                    sendmsg = (RESP_INFO, {"Subscriptions": list(subs)})
+                    dataq.put(sendmsg)
                 
                 elif command == "UnSubscribeAll":
                     # TODO fix fields and options here
@@ -596,16 +606,20 @@ async def data_forwarder(websocket, pool):
         try:
             # defaul thread pool executor (None) means can await non async queue
             dat = await loop.run_in_executor(None, dataq.get, True, 1)
+            tag = dat[0]
         except Empty:
             dat = None
         if dat is not None:
                 # potentially expensive msgpack operation in process pool
             datpacked = await msgpacker(dat, pool)
             if datpacked is not None:
+                print(f"{tag =} {len(datpacked)=}")
+                # Add message header to communicate if it's a large reference response
+                headerpacked = headerpack(datpacked, 1 if tag == RESP_REF else 0)
                 try:
-                    await websocket.send(datpacked)
-                except:
-                    logger.error("websocket send failed")
+                    await websocket.send(headerpacked)
+                except Exception as e:
+                    logger.error(f"websocket send failed with error {e}")
 
 
 async def connected(urlmask):
@@ -654,14 +668,15 @@ async def main():
             # ping loop
             try:
                 while True:
-                    await asyncio.sleep(1)
+                    await asyncio.sleep(0.5)
                     timestring = dt.datetime.utcnow().strftime("%Y-%m-%d %H:%M:%S")
-                    pingpacked = await msgpacker({"ping": timestring}, pool)
+                    sendmsg = ("ping", timestring)
+                    pingpacked = await msgpacker(sendmsg, pool)
                     if pingpacked is not None:
                         try: 
-                            await websocket.send(pingpacked)
-                        except:
-                            logger.error("ping failed")
+                            await websocket.send(headerpack(pingpacked, 0))
+                        except Exception as e:
+                            logger.error(f"ping failed with error {e}")
                             break
                     else:
                         logger.error("ping msgpack failed")
