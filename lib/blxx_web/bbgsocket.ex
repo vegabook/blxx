@@ -1,4 +1,4 @@
-defmodule Blxx.BbgSocket do
+defmodule BlxxWeb.BbgSocket do
   @behaviour Phoenix.Socket.Transport
   @resp_ref 1
   @moduledoc """

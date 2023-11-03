@@ -4,6 +4,8 @@ defmodule Blxx.Com do
   Example commands: 
   phttps://keyring.readthedocs.io/en/stable/arses commands and sends them to bloomberg socket
   Blxx.Com.com({:blp, [:barsubscribe, [["EURUSD Curncy", "USDZAR Curncy", "R186 Govt", "SPX Index", "GLE FP Equity", "USDJPY Curncy", "GBPUSD Curncy", "BTC Curncy", "EURCZK Curncy", "USDMXN Curncy", "R2048 Govt", "R2048 Govt"], ["LAST_PRICE"], ["interval=1"]]]})
+  Blxx.Com.com({:blp, [:barsubscribe, ["USDMXN Curncy"], ["LAST_PRICE"], ["interval=1"]]]})
+  Blxx.Com.com({:blp, [:barsubscribe, [["EURUSD Curncy", "USDZAR Curncy", "R186 Govt", "SPX Index", "GLE FP Equity", "USDJPY Curncy", "GBPUSD Curncy", "BTC Curncy", "EURCZK Curncy", "USDMXN Curncy", "R2048 Govt", "R2048 Govt"], ["LAST_PRICE"], ["interval=1"]]]})
   Blxx.Com.com({:blp, ["HistoricalDataRequest", "info"]})
   Blxx.Com.com({:blp, ["HistoricalDataRequest", %{"securities" => ["USDZAR Curncy"], "fields" => ["PX_BID"], "startDate" =>"20000101", "endDate" => "20231030"}]})
   Blxx.Com.com({:blp, ["IntradayTickRequest", %{"security" => "USDZAR Curncy", "startDateTime" => DateTime.new!(~D[2023-10-23], ~T[00:00:00]), "endDateTime" => DateTime.new!(~D[2023-10-30], ~T[00:00:00]), "eventTypes" => ["TRADE"]}]})
@@ -24,21 +26,21 @@ defmodule Blxx.Com do
   # generate a basic tree if more than one tickers is sent
   # Should user provide a name? Probably should force a name requirement
   #       if more than one tickers
-  def com({:blp, [:barsubscribe, params]}) do
-    with [tickers, fields | options] <- params, 
-          true <- is_list(tickers),
-          true <- is_list(fields),
-          true <- Enum.all?(options, fn x -> is_list(x) end),
-          true <- Enum.any?(options, fn map -> Map.has_key?(map, "Interval") end) do
-            Enum.map(tickers, fn ticker -> 
-            DynSupervisor.start_barhandler([ticker, fields] ++ options) end)
+  # use logger for all communications
+  # implement "raw" command
+  def com({:blp, [:barsubscribe, %{tickers: tickers, fields: fields} = params]}) do
+    # TODO NB this is messy. Does the syntax work? Also single barhandler best.
+    with true <- Enum.all?(params, fn p -> is_list(p) end),
+      true <- Map.has_key?(params, "Interval") end) do
+        Enum.map(tickers, fn ticker -> 
+          DynSupervisor.start_barhandler([ticker, fields] ++ options) end)
     else
       _ -> {:error, "tickers list, fields list, or interval not supplied"}
     end
   end
 
 
-  def com({:blp, command}) do
+  def com({:blp, [HistoricalData | rest]}) do
     # use with statement here maybe TODO for validation?
     send(sockpid(), {:com, command})
     :ok
@@ -73,8 +75,9 @@ defmodule Blxx.Com do
   end
 
 
-  def com(_) do
-    IO.puts "Unknown command"
+  def com(bad_command) do
+    IO.puts "Unknown command:"
+    IO.inspect bad_command
     :error
   end
 
