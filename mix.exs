@@ -51,7 +51,8 @@ defmodule Blxx.MixProject do
       {:gettext, "~> 0.20"},
       {:jason, "~> 1.2"},
       {:plug_cowboy, "~> 2.5"},
-      {:msgpax, "~> 2.0"}
+      {:msgpax, "~> 2.0"},
+      {:gen_stage, "~> 1.0"}
     ]
   end
 

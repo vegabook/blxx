@@ -2,7 +2,7 @@ defmodule Blxx.Com do
   @moduledoc """
 
   Example commands: 
-  parses commands and sends them to bloomberg socket
+  phttps://keyring.readthedocs.io/en/stable/arses commands and sends them to bloomberg socket
   Blxx.Com.com({:blp, [:barsubscribe, [["EURUSD Curncy", "USDZAR Curncy", "R186 Govt", "SPX Index", "GLE FP Equity", "USDJPY Curncy", "GBPUSD Curncy", "BTC Curncy", "EURCZK Curncy", "USDMXN Curncy", "R2048 Govt", "R2048 Govt"], ["LAST_PRICE"], ["interval=1"]]]})
   Blxx.Com.com({:blp, ["HistoricalDataRequest", "info"]})
   Blxx.Com.com({:blp, ["HistoricalDataRequest", %{"securities" => ["USDZAR Curncy"], "fields" => ["PX_BID"], "startDate" =>"20000101", "endDate" => "20231030"}]})
@@ -26,14 +26,12 @@ defmodule Blxx.Com do
   #       if more than one tickers
   def com({:blp, [:barsubscribe, params]}) do
     with [tickers, fields | options] <- params, 
-      true <- is_list(tickers),
-      true <- is_list(fields),
-      true <- Enum.all?(options, fn x -> is_list(x) end),
-      true <- Enum.any?(options, fn map -> Map.has_key?(map, "Interval")) do
-      Enum.map(tickers) fn ticker -> 
-        {:ok, correlid} = DynSupervisor.start_barhandler([ticker, fields] ++ options)
-        # now when messages come in on this correlid: GenServer.call({:via, Myapp.Registry, params}, :some_message)
-      end
+          true <- is_list(tickers),
+          true <- is_list(fields),
+          true <- Enum.all?(options, fn x -> is_list(x) end),
+          true <- Enum.any?(options, fn map -> Map.has_key?(map, "Interval") end) do
+            Enum.map(tickers, fn ticker -> 
+            DynSupervisor.start_barhandler([ticker, fields] ++ options) end)
     else
       _ -> {:error, "tickers list, fields list, or interval not supplied"}
     end
@@ -79,7 +77,6 @@ defmodule Blxx.Com do
     IO.puts "Unknown command"
     :error
   end
-
 
 end
 
