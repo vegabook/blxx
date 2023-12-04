@@ -10,6 +10,8 @@ import Config
 config :blxx,
   ecto_repos: [Blxx.Repo]
 
+config :blxx, dets_dir: "/home/tbrowne/data/blxx/"
+
 # Configures the endpoint
 config :blxx, BlxxWeb.Endpoint,
   url: [host: "localhost"],

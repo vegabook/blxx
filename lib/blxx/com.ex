@@ -30,17 +30,20 @@ defmodule Blxx.Com do
   # implement "raw" command
   def com({:blp, [:barsubscribe, %{tickers: tickers, fields: fields} = params]}) do
     # TODO NB this is messy. Does the syntax work? Also single barhandler best.
-    with true <- Enum.all?(params, fn p -> is_list(p) end),
-      true <- Map.has_key?(params, "Interval") end) do
-        Enum.map(tickers, fn ticker -> 
-          DynSupervisor.start_barhandler([ticker, fields] ++ options) end)
-    else
-      _ -> {:error, "tickers list, fields list, or interval not supplied"}
-    end
+    # insert with here to be sure it works for example: 
+    #with true <- Enum.all?(params, fn p -> is_list(p) end),
+    #  true <- Map.has_key?(params, "Interval") end) do
+    #Enum.map(tickers, fn ticker -> DynSupervisor.start_barhandler([ticker, fields] ++ options) end)
+    Enum.map(tickers, fn ticker -> DynSupervisor.start_barhandler([ticker, fields]) end)
   end
 
+  def com({:blp, command}) do 
+    # use with statement here maybe TODO for validation?
+    send(sockpid(), {:com, command})
+    :ok
+  end
 
-  def com({:blp, [HistoricalData | rest]}) do
+  def com({:blp, command}) do 
     # use with statement here maybe TODO for validation?
     send(sockpid(), {:com, command})
     :ok
@@ -59,13 +62,19 @@ defmodule Blxx.Com do
   end
 
 
-  def subscribe(topics, source \\ :blp, service \\ :mktdata, 
-    type \\:bar, fields \\ ["LAST_PRICE"], interval \\ 1) do
-    case type do
-      # TODO fix
-      :bar -> topic = "//blp/#{service}/#{type}/#{interval}#{topics}"
-      :tick -> topic = "//blp/mktdata/isin/US4592001014"
-    end 
+  def bar_subscribe(topics, source \\ :blp, service \\ :mktdata, 
+    fields \\ ["LAST_PRICE", "LAST_TRADE_ACTUAL"], 
+    interval \\ 1) do
+    # TODO implement "with" validation
+    # TODO check of not already subscribed
+    # TODO see what happens if subscribing to same ticker but new field. Does bloomberg send new fields in same messages?
+    fields_str = Enum.join(fields, ",")
+    topic_str_list = Enum.map(topics, fn ticker -> 
+      "//blp/mktdata/#{ticker}?fields=#{fields_str}&interval=#{interval}" end)
+    IO.inspect topic_str_list
+    # TODO register a process for each topic through the registry using topic string as key
+    # TODO ets table or cachex for topic strings that are live
+    # TODO use dynamic supervisor to monitor these processes
   end
 
 

@@ -10,9 +10,7 @@ defmodule Blxx.RefHandler do
     GenServer.start_link(__MODULE__, :ok, name: __MODULE__)
   end 
 
-  def init(:ok) do
 
-  end
 
 end
 

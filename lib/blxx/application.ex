@@ -7,6 +7,8 @@ defmodule Blxx.Application do
 
   @impl true
   def start(_type, _args) do
+    priv_dir = Application.get_env(:blxx, :dets_dir)
+    
     children = [
       # Start the Telemetry supervisor
       BlxxWeb.Telemetry,
@@ -25,13 +27,16 @@ defmodule Blxx.Application do
       # Start the DynSupervisor
       {Blxx.DynSupervisor, name: DynSupervisor},
       # start the dag genserver
-      {Blxx.Dag, name: Dag}
+      {Blxx.Dag, name: Dag},
+      # start the dets cache
+      {Blxx.DetsCache, name: DetsCache}
     ]
 
     # See https://hexdocs.pm/elixir/Supervisor.html
     # for other strategies and supported options
     opts = [strategy: :one_for_one, name: Blxx.Supervisor]
     Supervisor.start_link(children, opts)
+
   end
 
   # Tell Phoenix to update the endpoint configuration

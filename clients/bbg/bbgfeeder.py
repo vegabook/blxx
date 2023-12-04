@@ -153,7 +153,7 @@ async def msgpacker(obj, pool, trytimes = 3, dozetime = 0.01):
 
 def headerpack(msg: str, headerval: int):
     """
-    prepends an 8-byte message header to msg
+    prepends an 8-byte message header to msg. "Q" is C for 8 byte unsigned integer
     """
     return struct.pack("Q", headerval) + msg
 
