@@ -62,21 +62,22 @@ defmodule Blxx.Com do
   end
 
 
-  def subscribe(params) do 
-    oparams = Map.put_new(params, :options, %{}) # add empty options map if none provided
-    with {:has_topics, true} <- {:has_topics, Map.has_key?(oparams, :topics)},
-         {:has_fields, true} <- {:has_fields, Map.has_key?(oparams, :fields)},
-         {:fields_list, true} <- {:fields_list, is_list(oparams[:fields])},
-         {:topics_list, true} <- {:topics_list, is_list(oparams[:topics])},
-         {:options_map, true} <- {:options_map, is_map(oparams[:options])} do
-            com({:blp, [:BarSubscribe, oparams]})
+  def barSubscribe(params) when is_map(params) do 
+    with {:has_topics, true} <- {:has_topics, Map.has_key?(params, :topics)},
+         {:has_fields, false} <- {:has_fields, Map.has_key?(params, :fields)},
+         {:topics_is_list, true} <- {:topics_is_list, is_list(params[:topics])},
+         {:options_is_map, true} <- {:options_is_map, is_map(params[:options])} do
+            com({:blp, [:BarSubscribe, Map.put_new(params, :fields, ["LAST_PRICE"])]})
     else
-      {:has_topics, false} -> {:error, "No topics provided"}
-      {:has_fields, false} -> {:error, "No fields provided"}
-      {:fields_list, false} -> {:error, "fields must be a list"}
-      {:topics_list, false} -> {:error, "topics must be a list"}
-      {:options_map, false} -> {:error, "options must be a map"}
+      {:has_topics, false} -> {:error, "no topics provided"}
+      {:has_fields, true} -> {:error, "barSubscribe does not accept fields"}
+      {:topics_is_list, false} -> {:error, "topics must be a list"}
+      {:options_is_map, false} -> {:error, "options must be a map"}
     end
+  end
+
+  def barSubscribe(params) when not is_map(params) do
+    {:error, "barSubscribe expects a map"}
   end
 
 
