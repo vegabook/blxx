@@ -188,9 +188,13 @@ def createSubscriptionList(tickers, fields, options):
     """
     subscriptions = blpapi.SubscriptionList()
     correls = {}
+    fields_str = ",".join(fields)
+    options_str = "&".join([f"{k.replace(' ', '_')}={v}" for k, v in options.items()])
+    print(f"{options_str=}")
+    print(f"{fields_str=}")
     for ticker in tickers:
         correlid = blpapi.CorrelationId(ticker)
-        subscriptions.add(ticker, fields, options, correlid)
+        subscriptions.add(ticker, "LAST_PRICE", "interval=1", correlid)
         correls[ticker] = correlid
     return subscriptions, correls
 
@@ -401,9 +405,6 @@ class BbgRunner():
             logger.info(f"started {servstring} service.")
 
 
-
-
-
     def sendInfo(self, command, request):
         """ sends back structure information about the request """
         desc = request.asElement().elementDefinition()
@@ -417,6 +418,7 @@ class BbgRunner():
                                 "payld": payld,
                                 "error": (errmsg, errdetail)})
         dataq.put(sendmsg)
+
 
     def commandErrors(self, com):
         try:
@@ -435,21 +437,19 @@ class BbgRunner():
         if command in ("Subscribe", "BarSubscribe"):
             if len(payld) != 3:
                 return ("error", "Subscription payload must have 3 elements")
-            topics, fields, options = payld
+            topics, fields, options = (payld["topics"], payld["fields"], payld["options"])
             # check for lists
             if type(topics) != type([]):
                 return ("error", "First item (topics) must be a list")
             if type(fields) != type([]):
                 return ("error", "Second item (fields) must be a list")
-            if type(options) != type([]):
-                return ("error", "Third item (options) must be a list")
+            if type(options) != type({}):
+                return ("error", "Third item (options) must be a map")
             if command == "BarSubscribe":
                 if len(fields) != 1 or fields[0] != "LAST_PRICE":
                     return ("error", ("For BarSubscribe fields must contain "
                     "one element LAST_PRICE"))
-
         return None
-
 
 
     def listServices(self):
@@ -494,7 +494,7 @@ class BbgRunner():
 
                 if command in ("Subscribe", "BarSubscribe"):
                     # parse the command and check validity
-                    topics, fields, options = payld
+                    topics, fields, options = (payld["topics"], payld["fields"], payld["options"])
                     if command == "Subscribe":
                         # add qualifiers if full topic not provided
                         strtopics = [topic if "//" in topic else "//blp/mktdata/ticker/" + topic 
@@ -510,7 +510,6 @@ class BbgRunner():
                     if newsubs:
                         sub, correls = createSubscriptionList(newsubs, fields, options)
                         self.subservices["session"].subscribe(sub)
-                        # update subs
                     else:
                         logger.info(f"No new subscriptions in {payld}")
                     if alreadysubs:

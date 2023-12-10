@@ -35,6 +35,7 @@ defmodule Blxx.DetsCache do
 
 
   def handle_call(:first, _from, table) do
+    # usage: GenServer.call(Blxx.DetsCache, :all)
     value = :dets.first(table)
     {:reply, value, table}
   end

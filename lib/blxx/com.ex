@@ -62,19 +62,21 @@ defmodule Blxx.Com do
   end
 
 
-  def bar_subscribe(topics, source \\ :blp, service \\ :mktdata, 
-    fields \\ ["LAST_PRICE", "LAST_TRADE_ACTUAL"], 
-    interval \\ 1) do
-    # TODO implement "with" validation
-    # TODO check of not already subscribed
-    # TODO see what happens if subscribing to same ticker but new field. Does bloomberg send new fields in same messages?
-    fields_str = Enum.join(fields, ",")
-    topic_str_list = Enum.map(topics, fn ticker -> 
-      "//blp/mktdata/#{ticker}?fields=#{fields_str}&interval=#{interval}" end)
-    IO.inspect topic_str_list
-    # TODO register a process for each topic through the registry using topic string as key
-    # TODO ets table or cachex for topic strings that are live
-    # TODO use dynamic supervisor to monitor these processes
+  def subscribe(params) do 
+    oparams = Map.put_new(params, :options, %{}) # add empty options map if none provided
+    with {:has_topics, true} <- {:has_topics, Map.has_key?(oparams, :topics)},
+         {:has_fields, true} <- {:has_fields, Map.has_key?(oparams, :fields)},
+         {:fields_list, true} <- {:fields_list, is_list(oparams[:fields])},
+         {:topics_list, true} <- {:topics_list, is_list(oparams[:topics])},
+         {:options_map, true} <- {:options_map, is_map(oparams[:options])} do
+            com({:blp, [:BarSubscribe, oparams]})
+    else
+      {:has_topics, false} -> {:error, "No topics provided"}
+      {:has_fields, false} -> {:error, "No fields provided"}
+      {:fields_list, false} -> {:error, "fields must be a list"}
+      {:topics_list, false} -> {:error, "topics must be a list"}
+      {:options_map, false} -> {:error, "options must be a map"}
+    end
   end
 
 
