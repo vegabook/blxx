@@ -63,11 +63,12 @@ defmodule Blxx.Com do
 
 
   def barSubscribe(params) when is_map(params) do 
-    with {:has_topics, true} <- {:has_topics, Map.has_key?(params, :topics)},
-         {:has_fields, false} <- {:has_fields, Map.has_key?(params, :fields)},
-         {:topics_is_list, true} <- {:topics_is_list, is_list(params[:topics])},
-         {:options_is_map, true} <- {:options_is_map, is_map(params[:options])} do
-            com({:blp, [:BarSubscribe, Map.put_new(params, :fields, ["LAST_PRICE"])]})
+    oparams = Map.put_new(params, :options, %{})
+    with {:has_topics, true} <- {:has_topics, Map.has_key?(oparams, :topics)},
+         {:has_fields, false} <- {:has_fields, Map.has_key?(oparams, :fields)},
+         {:topics_is_list, true} <- {:topics_is_list, is_list(oparams[:topics])},
+         {:options_is_map, true} <- {:options_is_map, is_map(oparams[:options])} do
+            com({:blp, [:BarSubscribe, Map.put_new(oparams, :fields, ["LAST_PRICE"])]})
     else
       {:has_topics, false} -> {:error, "no topics provided"}
       {:has_fields, true} -> {:error, "barSubscribe does not accept fields"}

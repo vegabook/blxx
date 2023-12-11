@@ -39,7 +39,7 @@ defmodule BlxxWeb.BbgSocket do
     <<header::binary-size(8), message::binary>> = data
     <<msgtype::little-integer-size(64)>> = header
 
-    insert_db = fn bar -> GenServer.call(Blxx.Database, {:insert, bar.topic, bar}) end
+    insert_db = fn bar -> GenServer.call(Database, {:insert, bar.topic, bar}) end
 
     payload =
       if msgtype == @resp_ref do
