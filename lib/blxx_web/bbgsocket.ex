@@ -39,6 +39,8 @@ defmodule BlxxWeb.BbgSocket do
     <<header::binary-size(8), message::binary>> = data
     <<msgtype::little-integer-size(64)>> = header
 
+    insert_db = fn bar -> GenServer.call(Blxx.Database, {:insert, bar.topic, bar}) end
+
     payload =
       if msgtype == @resp_ref do
         Msgpax.unpack!(message)
@@ -85,7 +87,7 @@ defmodule BlxxWeb.BbgSocket do
           volume: volume,
           timestamp: timestamp
         }
-        |> IO.inspect()
+        |> insert_db.() 
 
       ["info", %{"request_type" => request_type, "structure" => structure}] ->
         IO.puts(request_type)
@@ -99,6 +101,8 @@ defmodule BlxxWeb.BbgSocket do
         :ok
     end
   end
+
+
 
   def handle_in({data, _opts}, state) do
     spawn(fn -> in_handler(data) end)

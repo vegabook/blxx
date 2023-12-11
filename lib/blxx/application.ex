@@ -29,7 +29,9 @@ defmodule Blxx.Application do
       # start the dag genserver
       {Blxx.Dag, name: Dag},
       # start the dets cache
-      {Blxx.DetsCache, name: DetsCache}
+      {Blxx.DetsCache, name: DetsCache},
+      # start the database
+      {Blxx.Database, name: Database}
     ]
 
     # See https://hexdocs.pm/elixir/Supervisor.html
