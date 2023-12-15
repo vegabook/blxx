@@ -90,6 +90,7 @@ defmodule Blxx.Dag do
 
   def get_store() do
     :dets.foldl(fn elem, acc -> [elem | acc] end, [], :vstore)
+    |> Enum.sort_by(fn x -> elem(x, 2) end)
   end
 
 
