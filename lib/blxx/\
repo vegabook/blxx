@@ -25,13 +25,11 @@ defmodule Blxx.Dag do
       {:repair, true}])
 
     if :dets.lookup(:vstore, :root) == [] do
-      :dets.insert_new(:vstore, {:root, :vertex, Blxx.Util.utc_stamp(), 
-        None, %{desc: "root vertex"}})
+      :dets.insert_new(:vstore, {:root, :vertex, Blxx.Util.utc_stamp(), %{desc: "root vertex"}})
       :dets.close(:vstore)
       open_vstore()
     else
-      graph = expand_graph(:digraph.new(), get_store())
-      {:ok, :vstore, graph}
+      {:ok, :vstore}
     end
   end
 
@@ -41,7 +39,6 @@ defmodule Blxx.Dag do
 
 
   def store_vertex(
-        graph,
         v,
         parent \\ :root,
         meta \\ %{},
@@ -49,32 +46,31 @@ defmodule Blxx.Dag do
       ) do
     
     with {:vbin, true} <- {:vbin, is_atom(v)},
+         {:pbin, true} <- {:pbin, is_atom(parent)},
          {:tsnum, true} <- {:tsnum, is_number(ts)},
          {:mmap, true} <- {:mmap, is_map(meta)},
-         {:pexist, true} <- {:pexist, :dets.lookup(:vstore, parent) != []},
-         {:vexist, false} <- {:vexist, Enum.member?(:digraph.vertices(graph), v)},
-         {:eexist, false} <- {:eexist, Enum.member?(Enum.map(:digraph.edges(graph), 
-              fn x -> edge_vertices(graph, x) end), {parent, v})}
+         {:pexist, true} <- {:pexist, :dets.lookup(:vstore, parent) != []}
     do
-      case :dets.insert_new(:vstore, {v, :vertedge, ts, parent, meta}) do
-        # TODO mkust add the vertex and edges to the graph here and return them too
-        true -> {:ok, v}
+      case :dets.insert_new(:vstore, {v, :vertex, ts, meta}) do
+        true -> 
+          case store_edge(parent, v) do
+            {:ok, _} -> {:ok, v}
+            {:error, _} -> {:error, "edge already exists"}
+          end 
         false -> {:error, "vertex #{v} already exists"}
       end
 
     else
       {:vbin, false} -> {:error, "vname must be a string"}
       {:tsnum, false} -> {:error, "timestamp must be a number"}
+      {:pbin, false} -> {:error, "parent must be an atom"}
       {:mmap, false} -> {:error, "meta must be a map"}
       {:pexist, false} -> {:error, "parent #{parent} does not exist"} 
-      {:vexist, true} -> {:error, "vertex #{v} already exists"}
-      {:eexist, true} -> {:error, "edge #{parent} to #{v} already exists"}
-
     end
   end
 
 
-  def store_edge(graph, vp, vc, ts \\ Blxx.Util.utc_stamp()) do
+  def store_edge(vp, vc, ts \\ Blxx.Util.utc_stamp()) do
     with true <- is_atom(vp),
          true <- is_atom(vc), 
          {:tsnum, true} <- {:tsnum, is_number(ts)},
@@ -95,31 +91,22 @@ defmodule Blxx.Dag do
 
 
   def get_store() do
-    :dets.foldl(fn elem, acc -> [elem | acc] end, [], :vstore)
+    :dets.foldl(fn elem, acc -> [[elem | acc], acc] end, [], :vstore)
     |> Enum.sort_by(fn x -> elem(x, 2) end)
   end
 
 
   # -------------- digraph vgraph ------------------
 
-  def edge_vertices(graph, edge) do
-    {_, v1, v2, _} = :digraph.edge(graph, edge)
-    {v1, v2}
-  end
-
-
-  def expand_graph(graph, tsnodes) do
-    # given sorted tsnodes create the graph
-    Enum.map(tsnodes, fn x -> 
+  def make_digraph(nodes) do
+    vgraph = :digraph.new()
+    Enum.map(nodes, fn x -> 
       case elem(x, 1) do
-        :vertex -> :digraph.add_vertex(graph, elem(x, 0), elem(x, 4))
-        :vertedge -> 
-          :digraph.add_vertex(graph, elem(x, 0), elem(x, 4))
-          :digraph.add_edge(graph, elem(x, 3), elem(x, 0))
-        :edge -> :digraph.add_edge(graph, elem(x, 0) |> elem(0), elem(x, 0) |> elem(1))
+        :vertex -> :digraph.add_vertex(vgraph, elem(x, 0), elem(x, 3))
+        :edge -> :digraph.add_edge(vgraph, elem(x, 0) |> elem(0), elem(x, 0) |> elem(1))
       end
     end)
-    {:ok, graph}
+    {:ok, vgraph}
   end 
 
 
