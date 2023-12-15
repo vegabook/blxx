@@ -13,10 +13,9 @@ defmodule Blxx.Com do
 
   def sockpid() do
     Registry.lookup(Blxx.Registry, :bbgsocket_pid)
-    |> List.first
+    |> List.first()
     |> elem(1)
   end
-
 
   # TODO
   #  create processes for each tickers
@@ -31,44 +30,52 @@ defmodule Blxx.Com do
   def com({:blp, [:barsubscribe, %{tickers: tickers, fields: fields} = params]}) do
     # TODO NB this is messy. Does the syntax work? Also single barhandler best.
     # insert with here to be sure it works for example: 
-    #with true <- Enum.all?(params, fn p -> is_list(p) end),
+    # with true <- Enum.all?(params, fn p -> is_list(p) end),
     #  true <- Map.has_key?(params, "Interval") end) do
-    #Enum.map(tickers, fn ticker -> DynSupervisor.start_barhandler([ticker, fields] ++ options) end)
+    # Enum.map(tickers, fn ticker -> DynSupervisor.start_barhandler([ticker, fields] ++ options) end)
     Enum.map(tickers, fn ticker -> DynSupervisor.start_barhandler([ticker, fields]) end)
   end
 
-  def com({:blp, command}) do 
+  def com({:blp, command}) do
     # use with statement here maybe TODO for validation?
     send(sockpid(), {:com, command})
     :ok
   end
 
-  def com({:blp, command}) do 
+  def com({:blp, command}) do
     # use with statement here maybe TODO for validation?
     send(sockpid(), {:com, command})
     :ok
   end
 
-
-  def historical_data_request(securities \\ ["USDZAR Curncy", "EURUSD Curncy"], 
-    fields \\ ["LAST_PRICE", "PX_BID", "PX_ASK"], 
-    startDate \\ "20000101", 
-    endDate \\ Date.utc_today() |> Date.to_string() |> String.replace("-", "")) do
-      com({:blp, ["HistoricalDataRequest", 
-        %{"securities" => securities, 
-          "fields" => fields, 
-          "startDate" => startDate, 
-          "endDate" => endDate}]})
+  def historical_data_request(
+        securities \\ ["USDZAR Curncy", "EURUSD Curncy"],
+        fields \\ ["LAST_PRICE", "PX_BID", "PX_ASK"],
+        startDate \\ "20000101",
+        endDate \\ Date.utc_today() |> Date.to_string() |> String.replace("-", "")
+      ) do
+    com(
+      {:blp,
+       [
+         "HistoricalDataRequest",
+         %{
+           "securities" => securities,
+           "fields" => fields,
+           "startDate" => startDate,
+           "endDate" => endDate
+         }
+       ]}
+    )
   end
 
-
-  def barSubscribe(params) when is_map(params) do 
+  def barSubscribe(params) when is_map(params) do
     oparams = Map.put_new(params, :options, %{})
+
     with {:has_topics, true} <- {:has_topics, Map.has_key?(oparams, :topics)},
          {:has_fields, false} <- {:has_fields, Map.has_key?(oparams, :fields)},
          {:topics_is_list, true} <- {:topics_is_list, is_list(oparams[:topics])},
          {:options_is_map, true} <- {:options_is_map, is_map(oparams[:options])} do
-            com({:blp, [:BarSubscribe, Map.put_new(oparams, :fields, ["LAST_PRICE"])]})
+      com({:blp, [:BarSubscribe, Map.put_new(oparams, :fields, ["LAST_PRICE"])]})
     else
       {:has_topics, false} -> {:error, "no topics provided"}
       {:has_fields, true} -> {:error, "barSubscribe does not accept fields"}
@@ -81,18 +88,14 @@ defmodule Blxx.Com do
     {:error, "barSubscribe expects a map"}
   end
 
-
   def unsubscribe(topic) do
     # TODO fix
     com({:blp, "unsubscribe", topic})
   end
 
-
   def com(bad_command) do
-    IO.puts "Unknown command:"
-    IO.inspect bad_command
+    IO.puts("Unknown command:")
+    IO.inspect(bad_command)
     :error
   end
-
 end
-

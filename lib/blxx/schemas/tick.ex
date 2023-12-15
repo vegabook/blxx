@@ -3,11 +3,11 @@ defmodule Blxx.Tick do
   import Ecto.Changeset
 
   schema "tick" do
-    field :source, :string
-    field :fld, :string
-    field :value, :float
-    field :timestamp, :utc_datetime
-    belongs_to :topic, Blxx.Topic
+    field(:source, :string)
+    field(:fld, :string)
+    field(:value, :float)
+    field(:timestamp, :utc_datetime)
+    belongs_to(:topic, Blxx.Topic)
 
     timestamps(type: :utc_datetime_usec)
   end
@@ -18,6 +18,4 @@ defmodule Blxx.Tick do
     |> cast(params, [:source, :topic, :fld, :value, :timestamp])
     |> validate_required([:source, :topic, :fld, :value, :timestamp])
   end
-
 end
-

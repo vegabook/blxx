@@ -87,7 +87,7 @@ defmodule BlxxWeb.BbgSocket do
           volume: volume,
           timestamp: timestamp
         }
-        |> insert_db.() 
+        |> insert_db.()
 
       ["info", %{"request_type" => request_type, "structure" => structure}] ->
         IO.puts(request_type)
@@ -101,8 +101,6 @@ defmodule BlxxWeb.BbgSocket do
         :ok
     end
   end
-
-
 
   def handle_in({data, _opts}, state) do
     spawn(fn -> in_handler(data) end)

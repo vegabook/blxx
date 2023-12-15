@@ -1,6 +1,6 @@
 defmodule BlxxWeb.SubHandler do
   use GenServer
-  
+
   alias Blxx.Dag
   alias Blxx.DynSupervisor
 
@@ -11,6 +11,4 @@ defmodule BlxxWeb.SubHandler do
   def init(:ok) do
     {:ok, %{}}
   end
-
-
 end

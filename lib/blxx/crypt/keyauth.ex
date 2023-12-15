@@ -22,6 +22,7 @@ defmodule Blxx.Crypt.KeyAuth do
     end
 
     ssh_dir = Path.join([key_dir, ".ssh"])
+
     unless File.exists?(ssh_dir) do
       raise "#{ssh_dir} not found."
     end
@@ -44,5 +45,3 @@ defmodule Blxx.Crypt.KeyAuth do
     end
   end
 end
-
-

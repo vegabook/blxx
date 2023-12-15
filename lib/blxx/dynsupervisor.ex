@@ -10,17 +10,15 @@ defmodule Blxx.DynSupervisor do
   end
 
   def start_barhandler(params) do
-    spec = %{id: BarHandler, start: {BarHandler, :start_link, params}} 
+    spec = %{id: BarHandler, start: {BarHandler, :start_link, params}}
     ret = DynamicSupervisor.start_child(__MODULE__, spec)
     # ret should be {:ok, correlid}
-    IO.puts "in start_barhandler, about to show ret which should be {:ok, correid}"
-    IO.inspect ret
+    IO.puts("in start_barhandler, about to show ret which should be {:ok, correid}")
+    IO.inspect(ret)
   end
 
   def stop_barhandler(pid) do
     # TODO
     DynamicSupervisor.terminate_child(__MODULE__, pid)
   end
-
-
 end
