@@ -1,8 +1,6 @@
 defmodule Blxx.Dag do
   @moduledoc """
   Stores ticker leaves and calculation nodes in a DETS table.
-  TODO: convert to digraph
-  TODO: move out of blxx_web and into blxx with others too that belong there
   """
 
   # -------------- dets vstore ---------------
@@ -19,19 +17,25 @@ defmodule Blxx.Dag do
     end
 
     :dets.open_file(:vstore, [
-      {:file, filepath}, 
-      {:type, :set}, 
-      {:keypos, 1}, # key is first element of tuple
-      {:repair, true}])
+      {:file, filepath},
+      {:type, :bag},
+      # key is first element of tuple
+      {:keypos, 1},
+      {:repair, true}
+    ])
 
     if :dets.lookup(:vstore, :root) == [] do
-      :dets.insert_new(:vstore, {:root, :vertex, Blxx.Util.utc_stamp(), 
-        None, %{desc: "root vertex"}})
+      clean_vstore()
+
+      :dets.insert_new(
+        :vstore,
+        {:root, None, Blxx.Util.utc_stamp(), :vertex, %{desc: "root vertex"}}
+      )
+
       :dets.close(:vstore)
       open_vstore()
     else
-      graph = expand_graph(:digraph.new(), get_store())
-      {:ok, :vstore, graph}
+      expand_graph(:digraph.new(), get_vstore())
     end
   end
 
@@ -40,88 +44,125 @@ defmodule Blxx.Dag do
   end
 
 
-  def store_vertex(
-        graph,
-        v,
-        parent \\ :root,
-        meta \\ %{},
-        ts \\ Blxx.Util.utc_stamp()
-      ) do
-    
-    with {:vbin, true} <- {:vbin, is_atom(v)},
+  def store_vertex(graph, v, parent \\ :root, meta \\ %{}, ts \\ Blxx.Util.utc_stamp()) do
+    # store a vertex in the vstore and add it to the graph 
+    testgraph = graph
+
+    with {:vatom, true} <- {:vatom, is_atom(v)},
+         {:patom, true} <- {:patom, is_atom(parent)},
          {:tsnum, true} <- {:tsnum, is_number(ts)},
          {:mmap, true} <- {:mmap, is_map(meta)},
-         {:pexist, true} <- {:pexist, :dets.lookup(:vstore, parent) != []},
-         {:vexist, false} <- {:vexist, Enum.member?(:digraph.vertices(graph), v)},
-         {:eexist, false} <- {:eexist, Enum.member?(Enum.map(:digraph.edges(graph), 
-              fn x -> edge_vertices(graph, x) end), {parent, v})}
-    do
-      case :dets.insert_new(:vstore, {v, :vertedge, ts, parent, meta}) do
-        # TODO mkust add the vertex and edges to the graph here and return them too
-        true -> {:ok, v}
-        false -> {:error, "vertex #{v} already exists"}
-      end
-
+         # no duplicate edge, also handles parent doesn't exist
+         {:novdupe, true} <- {:novdupe, !Enum.member?(:digraph.out_neighbours(testgraph, parent), v)},
+         # don't have to check dupe vertices becausing adding twice changes nothing even edges
+         {:addvertex, v} <- {:addvertex, :digraph.add_vertex(testgraph, v, meta)},
+         # add edge from parent to v
+         {:addedge, [:"$e" | rest]} <- {:addedge, :digraph.add_edge(testgraph, parent, v)},
+         # insert the instructions for this modification into the vstore
+         {:insert, true} <-
+           {:insert, :dets.insert_new(:vstore, {v, parent, ts, :vertedge, meta})} do
+      # since testgraph passed, we now rebuild the graph from the last insert
+      expand_graph(graph, [{v, parent, ts, :vertedge, meta}])
     else
-      {:vbin, false} -> {:error, "vname must be a string"}
-      {:tsnum, false} -> {:error, "timestamp must be a number"}
-      {:mmap, false} -> {:error, "meta must be a map"}
-      {:pexist, false} -> {:error, "parent #{parent} does not exist"} 
-      {:vexist, true} -> {:error, "vertex #{v} already exists"}
-      {:eexist, true} -> {:error, "edge #{parent} to #{v} already exists"}
+      {:vatom, false} ->
+        {:error, "vname must be an atom"}
 
+      {:patom, false} ->
+        {:error, "parent must be an atom"}
+
+      {:tsnum, false} ->
+        {:error, "timestamp must be a number"}
+
+      {:mmap, false} ->
+        {:error, "meta must be a map"}
+
+      {:novdupe, false} ->
+        {:error, "vertex already exists from parent"}
+
+      {:addvertex, {:error, reason}} ->
+        {:error, reason}
+
+      {:addedge, {:error, reason}} ->
+        :dets.delete(:vstore, {v, :vertedge, ts, parent, meta})
+        {:error, reason}
+
+      {:insert, {:error, reason}} ->
+        {:error, reason}
     end
   end
 
+  def store_edge(graph, parent, child, ts \\ Blxx.Util.utc_stamp()) do
+    # store an edge in the vstore and add it to the graph
+    # not usually needed as store_vertex always takes a parent but
+    # needed when adding edges to existing vertices eg. for overlapping groups
+    testgraph = graph
 
-  def store_edge(graph, vp, vc, ts \\ Blxx.Util.utc_stamp()) do
-    with true <- is_atom(vp),
-         true <- is_atom(vc), 
-         {:tsnum, true} <- {:tsnum, is_number(ts)},
-         {:pexist, true} <- {:pexist, :dets.lookup(:vstore, vp) != []},
-         {:cexist, true} <- {:cexist, :dets.lookup(:vstore, vc) != []} do
-      case :dets.insert_new(:vstore, {{vp, vc}, :edge, ts}) do
-        true -> {:ok, {vp, vc}}
-        false -> {:error, "edge #{vp} to #{vc} already exists"}
-      end
+    with {:tsnum, true} <- {:tsnum, is_number(ts)},
+         {:addedge, [:"$e" | rest]} <-
+           {:digraphaddedge, :digraph.add_edge(testgraph, parent, child)},
+         {:insert, true} <-
+           {:insert, :dets.insert_new(:vstore, {child, parent, ts, :edge, %{}})} do
+      {:ok, expand_graph(graph, [{child, parent, ts, :edge, %{}}])}
     else
       false -> {:error, "v1 and v2 must be atoms"}
-      {:pexist, false} -> {:error, "parent #{vp} does not exist"}
-      {:cexist, false} -> {:error, "child #{vc} does not exist"}
       {:tsnum, false} -> {:error, "timestamp must be a number"}
-
+      {:addedge, {:error, reason}} -> {:error, reason}
+      {:insert, {:error, reason}} -> {:error, reason}
     end
   end
 
+  def delete_subtree(graph, v) do
+    # delete a vertex and all its children that don't have other parent vertices
+    :ok
+  end
 
-  def get_store() do
+  def delete_edge(graph, vp, vc) do
+    # must find the edge then delete it
+    :ok
+  end
+
+  def get_vstore() do
+    # get all the vertices, vertedges, and edges from the vstore
     :dets.foldl(fn elem, acc -> [elem | acc] end, [], :vstore)
     |> Enum.sort_by(fn x -> elem(x, 2) end)
   end
 
+  def clean_vstore() do
+    # remove all vertices, vertedges, and edges from the vstore
+    :dets.delete_all_objects(:vstore)
+  end
 
   # -------------- digraph vgraph ------------------
 
   def edge_vertices(graph, edge) do
+    # returns the vertices of an edge
     {_, v1, v2, _} = :digraph.edge(graph, edge)
     {v1, v2}
   end
 
-
   def expand_graph(graph, tsnodes) do
-    # given sorted tsnodes create the graph
-    Enum.map(tsnodes, fn x -> 
-      case elem(x, 1) do
-        :vertex -> :digraph.add_vertex(graph, elem(x, 0), elem(x, 4))
-        :vertedge -> 
-          :digraph.add_vertex(graph, elem(x, 0), elem(x, 4))
-          :digraph.add_edge(graph, elem(x, 3), elem(x, 0))
-        :edge -> :digraph.add_edge(graph, elem(x, 0) |> elem(0), elem(x, 0) |> elem(1))
+    # given sorted tsnodes create a digraph
+    Enum.map(tsnodes, fn {v, parent, ts, type, meta} ->
+      IO.puts "v: #{v}, parent: #{parent}, ts: #{ts}, type: #{type}, meta: #{inspect(meta)}"
+      case type do
+        :vertex ->
+          :digraph.add_vertex(graph, v, meta)
+
+        :vertedge ->
+          :digraph.add_vertex(graph, v, meta)
+          :digraph.add_edge(graph, parent, v)
+
+        :edge ->
+          :digraph.add_edge(graph, parent, v)
+
+        :deledge ->
+          :digraph.del_path(graph, parent, v)
+
+        :delsubtree ->
+          {:TODO, graph}
       end
     end)
+
     {:ok, graph}
-  end 
-
-
+  end
 end
-

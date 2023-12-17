@@ -9,7 +9,6 @@ defmodule BlxxWeb.BbgSocket do
 
   alias Blxx.Tick
   alias Blxx.Bar
-  alias Blxx.Repo
 
   def child_spec(_opts) do
     # We won't spawn any process, so let's return a dummy task

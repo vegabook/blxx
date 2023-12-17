@@ -33,7 +33,7 @@ defmodule Blxx.Com do
     # with true <- Enum.all?(params, fn p -> is_list(p) end),
     #  true <- Map.has_key?(params, "Interval") end) do
     # Enum.map(tickers, fn ticker -> DynSupervisor.start_barhandler([ticker, fields] ++ options) end)
-    Enum.map(tickers, fn ticker -> DynSupervisor.start_barhandler([ticker, fields]) end)
+    Enum.map(tickers, fn ticker -> Blxx.DynSupervisor.start_barhandler([ticker, fields]) end)
   end
 
   def com({:blp, command}) do
@@ -42,10 +42,10 @@ defmodule Blxx.Com do
     :ok
   end
 
-  def com({:blp, command}) do
-    # use with statement here maybe TODO for validation?
-    send(sockpid(), {:com, command})
-    :ok
+  def com(bad_command) do
+    IO.puts("Unknown command:")
+    IO.inspect(bad_command)
+    :error
   end
 
   def historical_data_request(
@@ -91,11 +91,5 @@ defmodule Blxx.Com do
   def unsubscribe(topic) do
     # TODO fix
     com({:blp, "unsubscribe", topic})
-  end
-
-  def com(bad_command) do
-    IO.puts("Unknown command:")
-    IO.inspect(bad_command)
-    :error
   end
 end

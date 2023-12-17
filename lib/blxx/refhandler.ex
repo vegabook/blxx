@@ -6,7 +6,11 @@ defmodule Blxx.RefHandler do
 
   use GenServer
 
-  def start_link(_opts) do
-    GenServer.start_link(__MODULE__, :ok, name: __MODULE__)
+  def start_link(correlid) do
+    GenServer.start_link(__MODULE__, correlid, name: correlid)
+  end
+
+  def init(correlid) do
+    {:ok, correlid}
   end
 end

@@ -24,7 +24,7 @@ defmodule Blxx.BarHandler do
     IEx.pry()
   end
 
-  def handle_demand(demand, state) do
+  def handle_demand(_demand, state) do
     IO.puts("inside handle_demand")
     {:noreply, [], state}
   end

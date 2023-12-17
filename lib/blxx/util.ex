@@ -4,6 +4,5 @@ defmodule Blxx.Util do
   """
   def utc_stamp() do
     DateTime.utc_now() |> DateTime.to_unix(:microsecond)
-
   end
 end
