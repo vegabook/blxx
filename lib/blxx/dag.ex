@@ -59,8 +59,8 @@ defmodule Blxx.Dag do
          # add edge from parent to v
          {:addedge, [:"$e" | rest]} <- {:addedge, :digraph.add_edge(testgraph, parent, v)},
          # insert the instructions for this modification into the vstore
-         {:insert, true} <-
-           {:insert, :dets.insert_new(:vstore, {v, parent, ts, :vertedge, meta})} do
+         {:insert, :ok} <-
+           {:insert, :dets.insert(:vstore, {v, parent, ts, :vertedge, meta})} do
       # since testgraph passed, we now rebuild the graph from the last insert
       expand_graph(graph, [{v, parent, ts, :vertedge, meta}])
     else
@@ -86,8 +86,8 @@ defmodule Blxx.Dag do
         :dets.delete(:vstore, {v, :vertedge, ts, parent, meta})
         {:error, reason}
 
-      {:insert, {:error, reason}} ->
-        {:error, reason}
+      {:insert, false} ->
+        {:error, "vertex insert failed"}
     end
   end
 
@@ -99,15 +99,15 @@ defmodule Blxx.Dag do
 
     with {:tsnum, true} <- {:tsnum, is_number(ts)},
          {:addedge, [:"$e" | rest]} <-
-           {:digraphaddedge, :digraph.add_edge(testgraph, parent, child)},
-         {:insert, true} <-
-           {:insert, :dets.insert_new(:vstore, {child, parent, ts, :edge, %{}})} do
-      {:ok, expand_graph(graph, [{child, parent, ts, :edge, %{}}])}
+           {:addedge, :digraph.add_edge(testgraph, parent, child)},
+         {:insert, ok} <-
+           {:insert, :dets.insert(:vstore, {child, parent, ts, :edge, %{}})} do
+      expand_graph(graph, [{child, parent, ts, :edge, %{}}])
     else
       false -> {:error, "v1 and v2 must be atoms"}
       {:tsnum, false} -> {:error, "timestamp must be a number"}
       {:addedge, {:error, reason}} -> {:error, reason}
-      {:insert, {:error, reason}} -> {:error, reason}
+      {:insert, false} -> {:error, "edge insert failed"}
     end
   end
 
