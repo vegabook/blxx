@@ -4,7 +4,12 @@ defmodule TestDag do
   doctest Blxx.Dag
 
   test "open_vstore" do
-    Blxx.Dag.open_vstore()
+    filepath =
+      "~/.config/blxx/"
+      |> Path.expand()
+      |> Path.join("vstore.dets")
+      |> to_charlist()
+    Blxx.Dag.open_vstore(filepath)
     Blxx.Dag.clean_vstore()
     Blxx.Dag.close_vstore()
     {:ok, graph} = Blxx.Dag.open_vstore()

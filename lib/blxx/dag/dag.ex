@@ -5,48 +5,44 @@ defmodule Blxx.Dag do
 
   # -------------- dets vstore ---------------
 
-  def open_vstore() do
-    filepath =
-      "~/.config/blxx/"
-      |> Path.expand()
-      |> Path.join("vstore.dets")
-      |> to_charlist()
-
-    if not File.exists?(filepath) do
-      File.mkdir_p(Path.dirname(filepath))
-    end
-
-    :dets.open_file(:vstore, [
-      {:file, filepath},
-      {:type, :bag},
-      # key is first element of tuple
-      {:keypos, 1},
-      {:repair, true}
-    ])
-
-    if :dets.lookup(:vstore, :root) == [] do
-      clean_vstore()
-
-      :dets.insert_new(
-        :vstore,
-        {:root, None, Blxx.Util.utc_stamp(), :vertex, %{desc: "root vertex"}}
-      )
-
-      :dets.close(:vstore)
-      open_vstore()
+  def open_store(detspath) do
+    charpath = detspath |> to_charlist
+    strpath = detspath |> to_string
+    with {:isdir, false} <- {:isdir, strpath |> String.slice(-1, 1) == "/"},
+         {:direxists, true} <- {:direxists, strpath |> Path.dirname |> File.exists?},
+         {:open, {:ok, _}} <- {:open, :dets.open_file(strpath, [{:file, charpath}, {:type, :bag}, {:keypos, 1}, {:repair, true}])} do
+           if :dets.lookup(detspath, :root) == [] do
+             clean_nodes(detspath)
+           else
+             {detspath, expand_graph(:digraph.new(), dets_nodes(detspath))}
+           end
     else
-      expand_graph(:digraph.new(), get_vstore())
+      {:isdir, true} ->
+        {:error, "detspath must include a filename"}
+
+      {:direxists, false} ->
+        {:error, "detspath directory doesn't exist"}
+
+      {:open, {:error, reason}} ->
+        {:error, reason}
     end
   end
 
-  def close_vstore() do
-    :dets.close(:vstore)
+
+  def close_store(dg) when is_tuple(dg) do
+    {detspath, _graph} = dg
+    :dets.close(detspath)
   end
 
 
-  def store_vertex(graph, v, parent \\ :root, meta \\ %{}, ts \\ Blxx.Util.utc_stamp()) do
+  def close_store(detspath) do
+    :dets.close(detspath)
+  end
+
+
+  def add_vertex({detspath, graph}, v, parent \\ :root, meta \\ %{}, ts \\ Blxx.Util.utc_stamp()) do
     # store a vertex in the vstore and add it to the graph 
-    testgraph = graph
+    testgraph = graph # test if adding it works before committing to dets
 
     with {:vatom, true} <- {:vatom, is_atom(v)},
          {:patom, true} <- {:patom, is_atom(parent)},
@@ -60,9 +56,9 @@ defmodule Blxx.Dag do
          {:addedge, [:"$e" | rest]} <- {:addedge, :digraph.add_edge(testgraph, parent, v)},
          # insert the instructions for this modification into the vstore
          {:insert, :ok} <-
-           {:insert, :dets.insert(:vstore, {v, parent, ts, :vertedge, meta})} do
+           {:insert, :dets.insert(detspath, {v, parent, ts, :vertedge, meta})} do
       # since testgraph passed, we now rebuild the graph from the last insert
-      expand_graph(graph, [{v, parent, ts, :vertedge, meta}])
+      {:ok, {detspath, expand_graph(graph, [{v, parent, ts, :vertedge, meta}])}}
     else
       {:vatom, false} ->
         {:error, "vname must be an atom"}
@@ -83,7 +79,7 @@ defmodule Blxx.Dag do
         {:error, reason}
 
       {:addedge, {:error, reason}} ->
-        :dets.delete(:vstore, {v, :vertedge, ts, parent, meta})
+        :dets.delete(detspath, {v, :vertedge, ts, parent, meta})
         {:error, reason}
 
       {:insert, false} ->
@@ -91,45 +87,47 @@ defmodule Blxx.Dag do
     end
   end
 
-  def store_edge(graph, parent, child, ts \\ Blxx.Util.utc_stamp()) do
+
+  def add_edge({detspath, graph}, parent, child, ts \\ Blxx.Util.utc_stamp()) do
     # store an edge in the vstore and add it to the graph
     # not usually needed as store_vertex always takes a parent but
     # needed when adding edges to existing vertices eg. for overlapping groups
     testgraph = graph
 
     with {:tsnum, true} <- {:tsnum, is_number(ts)},
+         {:novdupe, true} <- 
+           {:novdupe, !Enum.member?(:digraph.out_neighbours(testgraph, parent), child)},
          {:addedge, [:"$e" | rest]} <-
            {:addedge, :digraph.add_edge(testgraph, parent, child)},
          {:insert, ok} <-
-           {:insert, :dets.insert(:vstore, {child, parent, ts, :edge, %{}})} do
-      expand_graph(graph, [{child, parent, ts, :edge, %{}}])
+           {:insert, :dets.insert(detspath, {child, parent, ts, :edge, %{}})} do
+
+          {:ok, {detspath, expand_graph(graph, [{child, parent, ts, :edge, %{}}])}}
     else
       false -> {:error, "v1 and v2 must be atoms"}
       {:tsnum, false} -> {:error, "timestamp must be a number"}
       {:addedge, {:error, reason}} -> {:error, reason}
       {:insert, false} -> {:error, "edge insert failed"}
+      {:novdupe, false} -> {:error, "edge already exists from parent"}
     end
   end
 
-  def delete_subtree(graph, v) do
-    # delete a vertex and all its children that don't have other parent vertices
-    :ok
-  end
 
-  def delete_edge(graph, vp, vc) do
-    # must find the edge then delete it
-    :ok
-  end
-
-  def get_vstore() do
+  def dets_nodes(detspath) do
     # get all the vertices, vertedges, and edges from the vstore
-    :dets.foldl(fn elem, acc -> [elem | acc] end, [], :vstore)
+    :dets.foldl(fn elem, acc -> [elem | acc] end, [], detspath)
     |> Enum.sort_by(fn x -> elem(x, 2) end)
   end
 
-  def clean_vstore() do
+
+  def clean_nodes(detspath) do
     # remove all vertices, vertedges, and edges from the vstore
-    :dets.delete_all_objects(:vstore)
+    :dets.delete_all_objects(detspath)
+    :dets.insert_new(
+      detspath,
+      {:root, None, Blxx.Util.utc_stamp(), :vertex, %{desc: "root vertex"}}
+    )
+    {detspath, expand_graph(:digraph.new(), dets_nodes(detspath))}
   end
 
   # -------------- digraph vgraph ------------------
@@ -143,7 +141,6 @@ defmodule Blxx.Dag do
   def expand_graph(graph, tsnodes) do
     # given sorted tsnodes create a digraph
     Enum.map(tsnodes, fn {v, parent, ts, type, meta} ->
-      IO.puts "v: #{v}, parent: #{parent}, ts: #{ts}, type: #{type}, meta: #{inspect(meta)}"
       case type do
         :vertex ->
           :digraph.add_vertex(graph, v, meta)
@@ -159,10 +156,10 @@ defmodule Blxx.Dag do
           :digraph.del_path(graph, parent, v)
 
         :delsubtree ->
-          {:TODO, graph}
+          # TODO
       end
     end)
-
-    {:ok, graph}
+    graph
   end
+
 end
