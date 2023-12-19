@@ -5,16 +5,15 @@ defmodule Blxx.Dag do
 
   # -------------- dets vstore ---------------
 
-  def open_store(detspath) do
+  def open_store(detspath) when is_binary(detspath) do  
     charpath = detspath |> to_charlist
-    strpath = detspath |> to_string
-    with {:isdir, false} <- {:isdir, strpath |> String.slice(-1, 1) == "/"},
-         {:direxists, true} <- {:direxists, strpath |> Path.dirname |> File.exists?},
-         {:open, {:ok, _}} <- {:open, :dets.open_file(strpath, [{:file, charpath}, {:type, :bag}, {:keypos, 1}, {:repair, true}])} do
+    with {:isdir, false} <- {:isdir, detspath |> String.slice(-1, 1) == "/"},
+         {:direxists, true} <- {:direxists, detspath |> Path.dirname |> File.exists?},
+         {:open, {:ok, _}} <- {:open, :dets.open_file(detspath, [{:file, charpath}, {:type, :bag}, {:keypos, 1}, {:repair, true}])} do
            if :dets.lookup(detspath, :root) == [] do
              clean_nodes(detspath)
            else
-             {detspath, expand_graph(:digraph.new(), dets_nodes(detspath))}
+             {:ok, {detspath, expand_graph(:digraph.new(), dets_nodes(detspath))}}
            end
     else
       {:isdir, true} ->
@@ -26,6 +25,11 @@ defmodule Blxx.Dag do
       {:open, {:error, reason}} ->
         {:error, reason}
     end
+  end
+
+  def open_store(detspath) when is_list(detspath) do  
+    # charlist 
+    detspath |> to_string |> open_store
   end
 
 
@@ -127,7 +131,7 @@ defmodule Blxx.Dag do
       detspath,
       {:root, None, Blxx.Util.utc_stamp(), :vertex, %{desc: "root vertex"}}
     )
-    {detspath, expand_graph(:digraph.new(), dets_nodes(detspath))}
+    {:ok, {detspath, expand_graph(:digraph.new(), dets_nodes(detspath))}}
   end
 
   # -------------- digraph vgraph ------------------

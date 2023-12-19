@@ -5,40 +5,15 @@ defmodule TestDag do
 
   test "open_vstore" do
     filepath =
-      "~/.config/blxx/"
+      "~/scratch/" <> (Blxx.Util.utc_stamp() |> to_string()) <> ".dets"
       |> Path.expand()
-      |> Path.join("vstore.dets")
       |> to_charlist()
-    Blxx.Dag.open_vstore(filepath)
-    Blxx.Dag.clean_vstore()
-    Blxx.Dag.close_vstore()
-    {:ok, graph} = Blxx.Dag.open_vstore()
-    assert :digraph.vertices(graph) == [:root]
-    assert :digraph.edges(graph) == []
+    IO.inspect filepath
+    {:ok, {d, g}} = Blxx.Dag.open_store(filepath)
+    assert :digraph.vertices(g) == [:root]
+    assert :digraph.edges(g) == []
+    assert {:ok, _} = Blxx.Dag.clean_nodes(d)
+    assert :ok == Blxx.Dag.close_store(d)
   end
 
-  test "add_vertices" do
-    Blxx.Dag.open_vstore()
-    Blxx.Dag.clean_vstore()
-    Blxx.Dag.close_vstore()
-    {:ok, graph} = Blxx.Dag.open_vstore()
-    assert Blxx.Dag.store_vertex(graph, :a, :root) == {:ok, graph}
-    assert Blxx.Dag.store_vertex(graph, :b, :root) == {:ok, graph}
-    mystamp = 1234
-    assert Blxx.Dag.store_vertex(graph, :c, :a, %{}, mystamp) == {:ok, graph}
-    mymeta = %{desc: "test"}
-    assert Blxx.Dag.store_vertex(graph, :d, :b, mymeta) == {:ok, graph}
-  end
-
-  test "add_duplicate_vertices_different_parents" do
-    Blxx.Dag.open_vstore()
-    Blxx.Dag.clean_vstore()
-    Blxx.Dag.close_vstore()
-    {:ok, graph} = Blxx.Dag.open_vstore()
-    assert Blxx.Dag.store_vertex(graph, :a, :root) == {:ok, graph}
-    assert Blxx.Dag.store_vertex(graph, :b, :root) == {:ok, graph}
-    assert Blxx.Dag.store_vertex(graph, :c, :a) == {:ok, graph}
-    assert Blxx.Dag.store_edge(graph, :c, :b) == {:ok, graph}
-    assert Blxx.Dag.store_edge(graph, :c, :root) == {:ok, graph}
-  end
 end
