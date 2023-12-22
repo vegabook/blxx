@@ -16,6 +16,7 @@ defmodule TestDag do
     {:ok, {d, g}, filepath}
   end
 
+
   test "open_vstore" do
     {:ok, {d, g}, f} = fileman()
     assert :digraph.vertices(g) == [:root]
@@ -25,6 +26,7 @@ defmodule TestDag do
     assert :ok = File.rm!(f)
   end
 
+  
   test "add_vertex" do
     {:ok, {d, g}, f} = fileman()
     {isokay, x} = Blxx.Dag.add_vertex({d, g}, :a)
@@ -44,6 +46,7 @@ defmodule TestDag do
     assert :ok = File.rm!(f)
   end
 
+
   test "make_fx" do
     {:ok, {d, g}, f} = fileman()
 
@@ -52,7 +55,7 @@ defmodule TestDag do
 
     assert isokay == :ok
 
-    curr = [
+    currs = [
       :EURPLN,
       :EURCZK,
       :USDUSD,
@@ -86,24 +89,24 @@ defmodule TestDag do
       :USDBGN
     ]
 
-    List.foldl(curr, g, fn v, g ->
-      case Blxx.Dag.add_vertex({d, g}, v, :fx) do
-        {:ok, {_, g}} ->
-          g
-
-        {:error, x} ->
-          IO.puts("error: #{x}")
-          g
-      end
-    end)
-
+    {isokay, {_, _}} = Blxx.Dag.add_vertices({d, g}, currs, :fx, fn v -> %{ticker: to_string(v) <> " Curncy", source: :blp} end)
+    assert isokay == :ok
+    # print out all the vertices
+    IO.inspect :digraph.vertices(g)
     # check if edges are all there
     edgevs = Enum.map(:digraph.edges(g), fn e -> Blxx.Dag.edge_vertices(g, e) end)
-    assert Enum.all?(Enum.map(curr, fn v -> Enum.member?(edgevs, {:fx, v}) end))
+    assert Enum.all?(Enum.map(currs, fn v -> Enum.member?(edgevs, {:fx, v}) end))
     # check if vertices are all there
-    assert Enum.all?(Enum.map(curr, fn v -> Enum.member?(:digraph.vertices(g), v) end))
+    assert Enum.all?(Enum.map(currs, fn v -> Enum.member?(:digraph.vertices(g), v) end))
+    # cleanup
     Blxx.Dag.close_store(d)
     assert :ok = File.rm!(f)
-    {:ok, g}
   end
+
+
+  test "addedge" do
+    assert :ok  == :ok
+  end
+
+
 end

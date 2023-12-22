@@ -31,4 +31,4 @@ Run `bbgfeeder.py --showkey` on the Windows client running BLoomberg Terminal / 
 Blxx implements a raw websocket server using Phoenix Transport in Elixir (example [here](https://furlough.merecomplexities.com/elixir/phoenix/tutorial/2021/02/19/binary-websockets-with-elixir-phoenix.html)), which is connected to by a python process [`bbgfeeder.py`](/clients/bbg/bbgfeeder.py). Elixir can send subscription and historical data requests, and receive the responses from 
 python which runs the offical Bloomberg [blpapi](https://www.bloomberg.com/professional/support/api-library/) client. 
 
-
+### WIP.....

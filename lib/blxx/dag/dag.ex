@@ -49,7 +49,10 @@ defmodule Blxx.Dag do
     :dets.close(detspath)
   end
 
-  def add_vertex({detspath, graph}, v, parent \\ :root, meta \\ %{}, ts \\ Blxx.Util.utc_stamp()) do
+  def add_vertex({detspath, graph}, v, 
+    parent \\ :root, 
+    meta \\ %{}, 
+    ts \\ Blxx.Util.utc_stamp()) do
     # store a vertex in the vstore and add it to the graph 
     # test if adding it works before committing to dets
     testgraph = graph
@@ -58,6 +61,7 @@ defmodule Blxx.Dag do
          {:patom, true} <- {:patom, is_atom(parent)},
          {:tsnum, true} <- {:tsnum, is_number(ts)},
          {:mmap, true} <- {:mmap, is_map(meta)},
+         # do inserts on the test graph to make sure they work
          # no duplicate edge, also handles parent doesn't exist
          {:novdupe, true} <-
            {:novdupe, !Enum.member?(:digraph.out_neighbours(testgraph, parent), v)},
@@ -65,6 +69,8 @@ defmodule Blxx.Dag do
          {:addvertex, v} <- {:addvertex, :digraph.add_vertex(testgraph, v, meta)},
          # add edge from parent to v
          {:addedge, [:"$e" | rest]} <- {:addedge, :digraph.add_edge(testgraph, parent, v)},
+         # no failures then delete the testgraph from (non gc'd) ETS to save space
+         {:deltestg, true} <- {:deltestg, :digraph.delete(testgraph)},
          # insert the instructions for this modification into the vstore
          {:insert, :ok} <-
            {:insert, :dets.insert(detspath, {v, parent, ts, :vertedge, meta})} do
@@ -72,7 +78,7 @@ defmodule Blxx.Dag do
       {:ok, {detspath, expand_graph(graph, [{v, parent, ts, :vertedge, meta}])}}
     else
       {:vatom, false} ->
-        {:error, "vname must be an atom"}
+        {:error, "vertex must be an atom"}
 
       {:patom, false} ->
         {:error, "parent must be an atom"}
@@ -93,10 +99,39 @@ defmodule Blxx.Dag do
         :dets.delete(detspath, {v, :vertedge, ts, parent, meta})
         {:error, reason}
 
+      {:deltestg, _} ->
+        {:error, "testgraph delete failed"}
+
       {:insert, false} ->
         {:error, "vertex insert failed"}
     end
   end
+
+
+  def add_vertices({detspath, graph}, 
+    vlist, 
+    parent, 
+    metafun \\ fn _ -> %{} end,
+    ts) do
+    # add a list of vertices to the vstore and graph
+    # metafun is a function that takes a vertex and returns a map
+    # eg. fn v -> %{desc: "vertex #{v}"} end
+    with {:vlist, true} <- {:vlist, is_list(vlist)} do
+      List.foldl(vlist, {:ok, {detspath, graph}}, fn v, acc ->
+        case acc do
+          {:ok, {detspath, graph}} ->
+            add_vertex({detspath, graph}, v, parent, metafun.(v), ts)
+
+          {:error, reason} ->
+            {:error, reason}
+        end
+      end)
+    else
+      {:vlist, false} ->
+        {:error, "vlist must be a list"}
+    end
+  end
+
 
   def add_edge({detspath, graph}, parent, child, ts \\ Blxx.Util.utc_stamp()) do
     # store an edge in the vstore and add it to the graph
