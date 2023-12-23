@@ -1,9 +1,14 @@
 defmodule Blxx.Dag do
   @moduledoc """
-  Stores ticker leaves and calculation nodes in a DETS table.
+  A graph-creation append-only log. Keeps a list of instructions on how to recreate a graph
+  in a dets table, and allows for the graph and dets to evolve using atomic operations that will affect
+  both or neither. All timestamped so that historic states can be recreated.
   """
 
   # TODO remove vdupes or some other way for handing new metadata
+  # TODO some asset class metadata may change over time. If I replace the asset class inter node does that
+  #    also remove the edges?
+  # TODO ability to remove subtrees and their associated edges
 
   # -------------- dets vstore ---------------
 
