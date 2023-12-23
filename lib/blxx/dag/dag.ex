@@ -3,6 +3,8 @@ defmodule Blxx.Dag do
   Stores ticker leaves and calculation nodes in a DETS table.
   """
 
+  # TODO remove vdupes or some other way for handing new metadata
+
   # -------------- dets vstore ---------------
 
   def open_store(detspath) when is_binary(detspath) do
@@ -214,8 +216,9 @@ defmodule Blxx.Dag do
     {v1, v2}
   end
 
+
   def expand_graph(graph, tsnodes) do
-    # given sorted tsnodes create a digraph
+    # given sorted tsnodes, extend graph with them
     Enum.map(tsnodes, fn {v, parent, ts, type, meta} ->
       case type do
         :vertex ->
@@ -239,4 +242,36 @@ defmodule Blxx.Dag do
 
     graph
   end
+
+
+  def leaves(graph, root \\ [:root]) # defined header for default value
+  # gets all the leaves of a graph, optionally starting somewhere
+  # other than :root node
+
+  def leaves(graph, root) when is_list(root) do
+    :digraph_utils.reachable_neighbours(root, graph)
+    |> Enum.filter(fn v -> :digraph.out_degree(graph, v) == 0 end)
+    |> Enum.map(fn v -> :digraph.vertex(graph, v) end)
+  end
+
+  def leaves(graph, root) when is_atom(root) do
+    leaves(graph, [root])
+  end
+
+  
+  def inters(graph, root \\ [:root])
+  # gets all the internal nodes of a graph, optionally starting somewhere
+  # other than :root node
+
+  def inters(graph, root) when is_list(root) do
+    :digraph_utils.reachable_neighbours(root, graph)
+    |> Enum.filter(fn v -> :digraph.out_degree(graph, v) > 0 end)
+    |> Enum.map(fn v -> :digraph.vertex(graph, v) end)
+  end
+
+  def inters(graph, root) when is_atom(root) do
+    inters(graph, [root])
+  end
+
+
 end

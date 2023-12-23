@@ -94,7 +94,7 @@ defmodule TestDag do
         fn v -> %{ticker: to_string(v) <> " Curncy", source: :blp} end)
     assert isokay == :ok
     # print out all the vertices
-    IO.inspect :digraph.vertices(g)
+    IO.inspect Enum.map(:digraph.vertices(g), fn v -> :digraph.vertex(g, v) end)
     # check if edges are all there
     edgevs = Enum.map(:digraph.edges(g), fn e -> Blxx.Dag.edge_vertices(g, e) end)
     assert Enum.all?(Enum.map(currs, fn v -> Enum.member?(edgevs, {:fx, v}) end))
@@ -148,5 +148,15 @@ defmodule TestDag do
     Blxx.Dag.close_store(d)
     assert :ok = File.rm!(f)
   end
+
+  test "big_graph" do
+    {:ok, {d, g}, f} = fileman()
+
+
+    Blxx.Dag.close_store(d)
+    assert :ok = File.rm!(f)
+
+  end
+
 
 end
