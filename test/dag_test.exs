@@ -29,13 +29,13 @@ defmodule TestDag do
   
   test "add_vertex" do
     {:ok, {d, g}, f} = fileman()
-    {isokay, x} = Blxx.Dag.add_vertex({d, g}, :a)
+    {isokay, _x} = Blxx.Dag.add_vertex({d, g}, :a)
     assert isokay == :ok
-    {isokay, x} = Blxx.Dag.add_vertex({d, g}, :b)
+    {isokay, _x} = Blxx.Dag.add_vertex({d, g}, :b)
     assert isokay == :ok
-    {isokay, x} = Blxx.Dag.add_vertex({d, g}, :c)
+    {isokay, _x} = Blxx.Dag.add_vertex({d, g}, :c)
     assert isokay == :ok
-    {isokay, x} = Blxx.Dag.add_edge({d, g}, :b, :c)
+    {isokay, _x} = Blxx.Dag.add_edge({d, g}, :b, :c)
     assert isokay == :ok
 
     assert Enum.all?(
@@ -45,7 +45,6 @@ defmodule TestDag do
     assert :ok == Blxx.Dag.close_store(d)
     assert :ok = File.rm!(f)
   end
-
 
   test "make_fx" do
     {:ok, {d, g}, f} = fileman()
@@ -89,7 +88,10 @@ defmodule TestDag do
       :USDBGN
     ]
 
-    {isokay, {_, _}} = Blxx.Dag.add_vertices({d, g}, currs, :fx, fn v -> %{ticker: to_string(v) <> " Curncy", source: :blp} end)
+    {isokay, {_, _}} = 
+      Blxx.Dag.add_vertices({d, g}, 
+        currs, :fx, 
+        fn v -> %{ticker: to_string(v) <> " Curncy", source: :blp} end)
     assert isokay == :ok
     # print out all the vertices
     IO.inspect :digraph.vertices(g)
@@ -105,8 +107,46 @@ defmodule TestDag do
 
 
   test "addedge" do
-    assert :ok  == :ok
+    {:ok, {d, g}, f} = fileman()
+    Blxx.Dag.add_vertex({d, g}, :a)
+    Blxx.Dag.add_vertex({d, g}, :b)
+    Blxx.Dag.add_vertex({d, g}, :c)
+    Blxx.Dag.add_vertex({d, g}, :d)
+    Blxx.Dag.add_vertex({d, g}, :e)
+    {ok1, {_x, _y}} = Blxx.Dag.add_edge({d, g}, :a, :b)
+    {ok2, {_x, _y}} = Blxx.Dag.add_edge({d, g}, :a, :c)
+    {ok3, {_x, _y}} = Blxx.Dag.add_edge({d, g}, :c, :d)
+    {ok4, {_x, _y}} = Blxx.Dag.add_edge({d, g}, :c, :e)
+    {ok5, {_x, _y}} = Blxx.Dag.add_edge({d, g}, :d, :e)
+    assert ok1 == :ok
+    assert ok2 == :ok
+    assert ok3 == :ok
+    assert ok4 == :ok
+    assert ok5 == :ok
+    edges = Enum.map(:digraph.edges(g), fn e -> Blxx.Dag.edge_vertices(g, e) end)
+    assert Enum.all?(Enum.map([{:a, :b}, {:a, :c}, {:c, :d}, {:c, :e}, {:d, :e}], 
+      fn e -> Enum.member?(edges, e) end))
+    Blxx.Dag.close_store(d)
+    assert :ok = File.rm!(f)
   end
 
+
+  test "badvertex" do
+    {:ok, {d, g}, f} = fileman()
+
+    bad_d = "this is not a dets table"
+    {e, _y} = Blxx.Dag.add_vertex({bad_d, g}, :a) # bad dets table
+    assert e == :error
+    assert !Enum.member?(:digraph.vertices(g), :a)
+    assert :digraph.vertices(g) == [:root]
+
+    Blxx.Dag.add_vertex({d, g}, :b, :z) # bad parent
+    assert !Enum.member?(:digraph.vertices(g), :b)
+    assert :digraph.edges(g) == [] 
+    assert (Enum.at(Blxx.Dag.dets_nodes(d), 0) |> elem(0)) == :root
+
+    Blxx.Dag.close_store(d)
+    assert :ok = File.rm!(f)
+  end
 
 end

@@ -49,14 +49,50 @@ defmodule Blxx.Dag do
     :dets.close(detspath)
   end
 
+
+  defp atomic_vedge({detspath, graph}, v, parent, meta, ts) do
+    # atomic add of a vertex and its edge to parent and save to dets
+    # if any stage fails preceding successes are rolled back
+    # yes nested case anti pattern yada but this is fine with only 3 levels
+    # https://elixirforum.com/t/pattern-matching-using-first-rest-in-with-clause-seems-to-fail/60541 
+    case :digraph.add_vertex(graph, v, meta) do
+      v -> 
+        case :digraph.add_edge(graph, parent, v) do
+          [:"$e" | rest] ->
+
+            dets_result = 
+            try do
+              :dets.insert(detspath, {v, parent, ts, :vertedge, meta})
+            rescue
+              e in ArgumentError -> {:error, e}
+            end
+
+            case dets_result do 
+              :ok -> {:ok, {detspath, graph}} # success function returns
+              # dets fail so rollback edge and vertex inserts
+              {:error, e} ->
+                :digraph.del_edge(graph, [:"$e" | rest])
+                :digraph.del_vertex(graph, v)
+                {:error, e}
+            end
+          # edge insert fail so rollback vertex insert
+          {:error, reason} ->
+            :digraph.del_vertex(graph, v)
+            {:error, reason}
+        end 
+      # vertex insert fail so return error
+      some_error ->
+        {:error, some_error}
+    end
+  end
+
+
   def add_vertex({detspath, graph}, v, 
     parent \\ :root, 
     meta \\ %{}, 
     ts \\ Blxx.Util.utc_stamp()) do
     # store a vertex in the vstore and add it to the graph 
     # test if adding it works before committing to dets
-    testgraph = graph
-
     with {:vatom, true} <- {:vatom, is_atom(v)},
          {:patom, true} <- {:patom, is_atom(parent)},
          {:tsnum, true} <- {:tsnum, is_number(ts)},
@@ -64,18 +100,8 @@ defmodule Blxx.Dag do
          # do inserts on the test graph to make sure they work
          # no duplicate edge, also handles parent doesn't exist
          {:novdupe, true} <-
-           {:novdupe, !Enum.member?(:digraph.out_neighbours(testgraph, parent), v)},
-         # don't have to check dupe vertices becausing adding twice changes nothing even edges
-         {:addvertex, v} <- {:addvertex, :digraph.add_vertex(testgraph, v, meta)},
-         # add edge from parent to v
-         {:addedge, [:"$e" | rest]} <- {:addedge, :digraph.add_edge(testgraph, parent, v)},
-         # no failures then delete the testgraph from (non gc'd) ETS to save space
-         {:deltestg, true} <- {:deltestg, :digraph.delete(testgraph)},
-         # insert the instructions for this modification into the vstore
-         {:insert, :ok} <-
-           {:insert, :dets.insert(detspath, {v, parent, ts, :vertedge, meta})} do
-      # since testgraph passed, we now rebuild the graph from the last insert
-      {:ok, {detspath, expand_graph(graph, [{v, parent, ts, :vertedge, meta}])}}
+           {:novdupe, !Enum.member?(:digraph.out_neighbours(graph, parent), v)} do
+      atomic_vedge({detspath, graph}, v, parent, meta, ts)
     else
       {:vatom, false} ->
         {:error, "vertex must be an atom"}
@@ -99,9 +125,6 @@ defmodule Blxx.Dag do
         :dets.delete(detspath, {v, :vertedge, ts, parent, meta})
         {:error, reason}
 
-      {:deltestg, _} ->
-        {:error, "testgraph delete failed"}
-
       {:insert, false} ->
         {:error, "vertex insert failed"}
     end
@@ -112,7 +135,7 @@ defmodule Blxx.Dag do
     vlist, 
     parent, 
     metafun \\ fn _ -> %{} end,
-    ts) do
+    ts \\ Blxx.Util.utc_stamp()) do
     # add a list of vertices to the vstore and graph
     # metafun is a function that takes a vertex and returns a map
     # eg. fn v -> %{desc: "vertex #{v}"} end
@@ -135,32 +158,41 @@ defmodule Blxx.Dag do
 
   def add_edge({detspath, graph}, parent, child, ts \\ Blxx.Util.utc_stamp()) do
     # store an edge in the vstore and add it to the graph
-    # not usually needed as store_vertex always takes a parent but
-    # needed when adding edges to existing vertices eg. for overlapping groups
-    testgraph = graph
-
+    # atomic like atomic_vedge but with no vertex insert
     with {:tsnum, true} <- {:tsnum, is_number(ts)},
          {:novdupe, true} <-
-           {:novdupe, !Enum.member?(:digraph.out_neighbours(testgraph, parent), child)},
-         {:addedge, [:"$e" | rest]} <-
-           {:addedge, :digraph.add_edge(testgraph, parent, child)},
-         {:insert, ok} <-
-           {:insert, :dets.insert(detspath, {child, parent, ts, :edge, %{}})} do
-      {:ok, {detspath, expand_graph(graph, [{child, parent, ts, :edge, %{}}])}}
+           {:novdupe, !Enum.member?(:digraph.out_neighbours(graph, parent), child)} do
+      case :digraph.add_edge(graph, parent, child) do
+        [:"$e" | rest] ->
+
+            dets_result = 
+            try do
+              :dets.insert(detspath, {child, parent, ts, :edge, %{}})
+            rescue
+              e in ArgumentError -> {:error, e}
+            end
+
+          case dets_result do 
+            :ok -> {:ok, {detspath, graph}}
+            false ->
+              :digraph.del_edge(graph, [:"$e" | rest])
+              {:error, "dets edge insert failed"}
+          end
+        {:error, reason} -> {:error, reason}
+      end
     else
-      false -> {:error, "v1 and v2 must be atoms"}
       {:tsnum, false} -> {:error, "timestamp must be a number"}
-      {:addedge, {:error, reason}} -> {:error, reason}
-      {:insert, false} -> {:error, "edge insert failed"}
       {:novdupe, false} -> {:error, "edge already exists from parent"}
     end
   end
+
 
   def dets_nodes(detspath) do
     # get all the vertices, vertedges, and edges from the vstore
     :dets.foldl(fn elem, acc -> [elem | acc] end, [], detspath)
     |> Enum.sort_by(fn x -> elem(x, 2) end)
   end
+
 
   def clean_nodes(detspath) do
     # remove all vertices, vertedges, and edges from the vstore
