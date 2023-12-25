@@ -7,9 +7,27 @@ defmodule Blxx.Com do
   Blxx.Com.com({:blp, [:barsubscribe, ["USDMXN Curncy"], ["LAST_PRICE"], ["interval=1"]]]})
   Blxx.Com.com({:blp, [:barsubscribe, [["EURUSD Curncy", "USDZAR Curncy", "R186 Govt", "SPX Index", "GLE FP Equity", "USDJPY Curncy", "GBPUSD Curncy", "BTC Curncy", "EURCZK Curncy", "USDMXN Curncy", "R2048 Govt", "R2048 Govt"], ["LAST_PRICE"], ["interval=1"]]]})
   Blxx.Com.com({:blp, ["HistoricalDataRequest", "info"]})
-  Blxx.Com.com({:blp, ["HistoricalDataRequest", %{"securities" => ["USDZAR Curncy"], "fields" => ["PX_BID"], "startDate" =>"20000101", "endDate" => "20231030"}]})
-  Blxx.Com.com({:blp, ["IntradayTickRequest", %{"security" => "USDZAR Curncy", "startDateTime" => DateTime.new!(~D[2023-10-23], ~T[00:00:00]), "endDateTime" => DateTime.new!(~D[2023-10-30], ~T[00:00:00]), "eventTypes" => ["TRADE"]}]})
+  Blxx.Com.com({:blp, ["HistoricalDataRequest", %{"securities" => ["USDZAR Curncy"], 
+  "  fields" => ["PX_BID"], "startDate" =>"20000101", "endDate" => "20231030"}]})
+  Blxx.Com.com({:blp, ["IntradayTickRequest", %{"security" => "USDZAR Curncy", 
+    "startDateTime" => DateTime.new!(~D[2023-10-23], ~T[00:00:00]), 
+    "endDateTime" => DateTime.new!(~D[2023-10-30], ~T[00:00:00]), "eventTypes" => ["TRADE"]}]})
+
+ eventTypes:
+ TRADE
+ BID
+ ASK
+ BID_BEST
+ ASK_BEST
+ BID_YIELD
+ ASK_YIELD
+ MID_PRICE
+ AT_TRADE
+ BEST_BID
+ BEST_ASK
+ SETTLE
   """
+  # --------- communications and sockets ----------
 
   def sockpid() do
     Registry.lookup(Blxx.Registry, :bbgsocket_pid)
@@ -48,25 +66,8 @@ defmodule Blxx.Com do
     :error
   end
 
-  def historical_data_request(
-        securities \\ ["USDZAR Curncy", "EURUSD Curncy"],
-        fields \\ ["LAST_PRICE", "PX_BID", "PX_ASK"],
-        startDate \\ "20231201",
-        endDate \\ Date.utc_today() |> Date.to_string() |> String.replace("-", "")
-      ) do
-    com(
-      {:blp,
-       [
-         "HistoricalDataRequest",
-         %{
-           "securities" => securities,
-           "fields" => fields,
-           "startDate" => startDate,
-           "endDate" => endDate
-         }
-       ]}
-    )
-  end
+
+  # --------- subsccriptions ----------
 
   def barSubscribe(params) when is_map(params) do
     oparams = Map.put_new(params, :options, %{})
@@ -75,7 +76,8 @@ defmodule Blxx.Com do
          {:has_fields, false} <- {:has_fields, Map.has_key?(oparams, :fields)},
          {:topics_is_list, true} <- {:topics_is_list, is_list(oparams[:topics])},
          {:options_is_map, true} <- {:options_is_map, is_map(oparams[:options])} do
-      com({:blp, [:BarSubscribe, Map.put_new(oparams, :fields, ["LAST_PRICE"])]})
+      cid = Blxx.Util.random_string()
+      com({:blp, [:BarSubscribe, Map.put_new(oparams, :fields, ["LAST_PRICE"]), cid]})
     else
       {:has_topics, false} -> {:error, "no topics provided"}
       {:has_fields, true} -> {:error, "barSubscribe does not accept fields"}
@@ -92,4 +94,89 @@ defmodule Blxx.Com do
     # TODO fix
     com({:blp, "unsubscribe", topic})
   end
+
+
+  # --------- reference ----------
+
+  def historical_data_request(
+    # daily data
+      securities \\ ["USDZAR Curncy", "EURUSD Curncy"],
+      fields \\ ["LAST_PRICE", "PX_BID", "PX_ASK"],
+      startDate \\ "20231201",
+      endDate \\ Date.utc_today() |> Date.to_string() |> String.replace("-", "")
+    ) do
+    cid = Blxx.Util.random_string()
+    com(
+      {:blp,
+       [
+         "HistoricalDataRequest",
+         %{
+           "securities" => securities,
+           "fields" => fields,
+           "startDate" => startDate,
+           "endDate" => endDate
+         },
+       cid 
+       ]}
+    )
+  end
+
+
+  def intraday_tick_request(
+      security \\ "USDZAR Curncy", 
+      startDateTime \\ DateTime.new!(~D[2023-10-23], ~T[10:00:00]),
+      endDateTime \\ DateTime.new!(~D[2023-10-23], ~T[10:00:05]),
+      eventTypes \\ ["TRADE"]
+    ) do
+    cid = Blxx.Util.random_string()
+    com(
+      {:blp,
+       [
+         "IntradayTickRequest",
+         %{
+           "security" => security,
+           "startDateTime" => startDateTime,
+           "endDateTime" => endDateTime,
+           "eventTypes" => eventTypes
+         },
+         cid
+       ]}
+    )
+  end
+
+
+  def intraday_bar_request(
+      security \\ "XBTUSD Curncy", 
+      startDateTime \\ DateTime.new!(~D[2023-10-23], ~T[10:00:00]),
+      endDateTime \\ DateTime.new!(~D[2023-10-23], ~T[11:10:00]),
+      interval \\ 1
+    ) do
+    with {:i60, true} <- {:i60, interval >= 1 and interval <= 1440} do
+      cid = Blxx.Util.random_string()
+      com(
+        {:blp,
+         [
+           "IntradayBarRequest",
+           %{
+             "security" => security,
+             "startDateTime" => startDateTime,
+             "endDateTime" => endDateTime,
+             "interval" => interval,
+             "gapFillInitialBar" => true
+           },
+         cid
+         ]}
+      )
+    else
+      {:i60, false} -> {:error, "interval must be greater than 60 and less than 1440"}
+    end
+  end
+
+
+
+
+
+
+
+
 end

@@ -38,9 +38,6 @@ defmodule BlxxWeb.BbgSocket do
     <<header::binary-size(8), message::binary>> = data
     <<msgtype::little-integer-size(64)>> = header
 
-    IO.puts("PID")
-    IO.inspect self()
-
     # insertdb function TODO fix?
     insert_db = fn bar -> GenServer.call(Database, {:insert, bar.topic, bar}) end
 
@@ -112,7 +109,9 @@ defmodule BlxxWeb.BbgSocket do
   end
 
   def handle_in({data, _opts}, state) do
-    # TODO might not have to spawn unless it's reference data
+    # DATA comes back handler
+    # TODO might not have to spawn unless it's reference data. 
+    # check spawn design pattern in general with responsibility boundaries
     # TODO handle correlation IDs well
     # TODO test minute bars
     # TODO database move to disk_log?
@@ -120,18 +119,8 @@ defmodule BlxxWeb.BbgSocket do
     {:ok, state}
   end
 
-  def handle_info({:challenge, challenge}, state) do
-    # send the challenge back
-    cpack = Msgpax.pack!(%{"challenge" => challenge})
-    {:push, {:binary, cpack}, state}
-  end
-
-  def handle_info(:sendback, %{number: number} = state) do
-    # here look at the push thing in the website
-    {:push, {:text, Msgpax.pack!({"hello", "there"})}, %{state | number: number + 1}}
-  end
-
   def handle_info({:com, command}, state) do
+    # commands handler
     IO.puts("Received command: #{inspect(command)}")
     {:push, {:binary, Msgpax.pack!(command)}, state}
   end

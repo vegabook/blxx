@@ -422,7 +422,7 @@ class BbgRunner():
 
     def commandErrors(self, com):
         try:
-            command, payld = com
+            command, payld, cid = com
         except:
             return ("error", "Could not parse command or payload")
         if type(command) != str:
@@ -483,7 +483,7 @@ class BbgRunner():
                     self.sendError(None, None, comerr[1])
                     continue
 
-                command, payld = com
+                command, payld, cid = com
 
                 # check payload for errors 
                 if (perr := self.payldErrs(command, payld)) is not None:
@@ -547,9 +547,9 @@ class BbgRunner():
                     else:
                         try: 
                             rrequest.fromPy(payld)
-                            cid = blpapi.CorrelationId((command, payld))
+                            cid_bbg = blpapi.CorrelationId(cid)
                             # bid = rrequest.getRequestId() # not used for now
-                            self.refservices["session"].sendRequest(rrequest, correlationId=cid)
+                            self.refservices["session"].sendRequest(rrequest, correlationId=cid_bbg)
                         except Exception as e:
                             logger.error(e)
                             self.sendError(command, payld, str(e))
@@ -610,7 +610,6 @@ async def data_forwarder(websocket, pool):
             dat = None
         if dat is not None:
             # potentially expensive msgpack operation in process pool
-            print(dat)
             datpacked = await msgpacker(dat, pool)
             if datpacked is not None:
                 print(f"{tag =} {len(datpacked)=}")
@@ -668,7 +667,7 @@ async def main():
             # ping loop
             try:
                 while True:
-                    await asyncio.sleep(0.5)
+                    await asyncio.sleep(3) # ping every x seconds
                     timestring = dt.datetime.utcnow().strftime("%Y-%m-%d %H:%M:%S")
                     sendmsg = ("ping", timestring)
                     pingpacked = await msgpacker(sendmsg, pool)
