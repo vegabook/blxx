@@ -101,6 +101,7 @@ defmodule Blxx.Dag.DagExperiments do
     Blxx.Dag.add_vertices({d, g}, asia, :asia, fn x -> %{:source => :blp, :ticker => to_string(x) <> " Curncy"} end)
     Blxx.Dag.add_vertices({d, g}, latam, :latam, fn x -> %{:source => :blp, :ticker => to_string(x) <> " Curncy"} end)
     Blxx.Dag.add_vertex({d, g}, :USDBRL, :latam, %{desc: :this_is_new_meta})
+    {d, g}
 
   end
 

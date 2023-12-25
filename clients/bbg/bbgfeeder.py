@@ -609,7 +609,8 @@ async def data_forwarder(websocket, pool):
         except Empty:
             dat = None
         if dat is not None:
-                # potentially expensive msgpack operation in process pool
+            # potentially expensive msgpack operation in process pool
+            print(dat)
             datpacked = await msgpacker(dat, pool)
             if datpacked is not None:
                 print(f"{tag =} {len(datpacked)=}")

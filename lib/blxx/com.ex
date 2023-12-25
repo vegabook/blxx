@@ -51,7 +51,7 @@ defmodule Blxx.Com do
   def historical_data_request(
         securities \\ ["USDZAR Curncy", "EURUSD Curncy"],
         fields \\ ["LAST_PRICE", "PX_BID", "PX_ASK"],
-        startDate \\ "20000101",
+        startDate \\ "20231201",
         endDate \\ Date.utc_today() |> Date.to_string() |> String.replace("-", "")
       ) do
     com(

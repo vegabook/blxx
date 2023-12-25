@@ -38,12 +38,15 @@ defmodule BlxxWeb.BbgSocket do
     <<header::binary-size(8), message::binary>> = data
     <<msgtype::little-integer-size(64)>> = header
 
+    IO.puts("PID")
+    IO.inspect self()
+
+    # insertdb function TODO fix?
     insert_db = fn bar -> GenServer.call(Database, {:insert, bar.topic, bar}) end
 
     payload =
       if msgtype == @resp_ref do
-        Msgpax.unpack!(message)
-        ["info", "message is of type reference"]
+        Msgpax.unpack!(message) # TODO put into a separate process because big
       else
         Msgpax.unpack!(message)
       end
@@ -87,21 +90,32 @@ defmodule BlxxWeb.BbgSocket do
           timestamp: timestamp
         }
         |> insert_db.()
+        IO.puts("Received bar data")
+
+      ["refdata", x] -> 
+          IO.inspect(x)
 
       ["info", %{"request_type" => request_type, "structure" => structure}] ->
+        IO.puts "Received info structure"
         IO.puts(request_type)
         IO.puts(structure)
 
       ["info", infomsg] ->
-        IO.inspect(infomsg)
+        IO.puts "Received info"
+        IO.inspect payload
 
       anything ->
+        IO.puts "Received anything"
         IO.inspect(anything)
         :ok
     end
   end
 
   def handle_in({data, _opts}, state) do
+    # TODO might not have to spawn unless it's reference data
+    # TODO handle correlation IDs well
+    # TODO test minute bars
+    # TODO database move to disk_log?
     spawn(fn -> in_handler(data) end)
     {:ok, state}
   end
