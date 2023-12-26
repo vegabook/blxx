@@ -279,4 +279,21 @@ defmodule Blxx.Dag do
   end
 
 
+  def subqual(graph, root, newgraph \\ :digraph.new(), pmeta \\ %{}) when is_atom(root) do
+    # recursive subtree of a graph with startinewgraph node root
+    # all meta kv pairs of parent nodes will be passed to 
+    # child nodes unless overridden by child nodes
+    {n, meta} = :digraph.vertex(graph, root)
+    newmeta = Map.merge(pmeta, meta)
+    :digraph.add_vertex(newgraph, n, newmeta)
+    for v <- :digraph.out_neighbours(graph, root) do
+      subqual(graph, v, newgraph, meta)
+    end
+    for v <- :digraph.out_neighbours(graph, root) do
+      :digraph.add_edge(newgraph, root, v)
+    end
+    newgraph
+  end
+
+
 end

@@ -48,7 +48,6 @@ defmodule Blxx.Dag.DagExperiments do
     {:ok, {d, g}, f} = fileman()
 
     dev = [
-      :USDUSD,
       :USDGBP,
       :USDCHF,
       :USDCAD,
@@ -91,15 +90,19 @@ defmodule Blxx.Dag.DagExperiments do
       :USDCLP,
     ]
 
-    Blxx.Dag.add_vertex({d, g}, :fx, :root, %{:asset_class => "foreign exchange"})
+    Blxx.Dag.add_vertex({d, g}, :fx, :root, %{:asset_class => "foreign exchange", subscribe: true})
     Blxx.Dag.add_vertex({d, g}, :dev, :fx, %{:desc => "developed"})
     Blxx.Dag.add_vertex({d, g}, :emea, :fx, %{:desc => "europe, middle east, africa"})
     Blxx.Dag.add_vertex({d, g}, :asia, :fx, %{:desc => "asia"})
     Blxx.Dag.add_vertex({d, g}, :latam, :fx, %{:desc => "latin america"})
-    Blxx.Dag.add_vertices({d, g}, dev, :dev, fn x -> %{:source => :blp, :ticker => to_string(x) <> " Curncy"} end)
-    Blxx.Dag.add_vertices({d, g}, emea, :emea, fn x -> %{:source => :blp, :ticker => to_string(x) <> " Curncy"} end)
-    Blxx.Dag.add_vertices({d, g}, asia, :asia, fn x -> %{:source => :blp, :ticker => to_string(x) <> " Curncy"} end)
-    Blxx.Dag.add_vertices({d, g}, latam, :latam, fn x -> %{:source => :blp, :ticker => to_string(x) <> " Curncy"} end)
+    Blxx.Dag.add_vertices({d, g}, dev, :dev, fn x -> %{:source => :blp, 
+      :ticker => to_string(x) <> " Curncy"} end)
+    Blxx.Dag.add_vertices({d, g}, emea, :emea, fn x -> %{:source => :blp, 
+      :ticker => to_string(x) <> " Curncy"} end)
+    Blxx.Dag.add_vertices({d, g}, asia, :asia, fn x -> %{:source => :blp, 
+      :ticker => to_string(x) <> " Curncy"} end)
+    Blxx.Dag.add_vertices({d, g}, latam, :latam, fn x -> %{:source => :blp, 
+      :ticker => to_string(x) <> " Curncy"} end)
     Blxx.Dag.add_vertex({d, g}, :USDBRL, :latam, %{desc: :this_is_new_meta})
     {d, g}
 

@@ -67,7 +67,7 @@ defmodule Blxx.Com do
   end
 
 
-  # --------- subsccriptions ----------
+  # --------- subscriptions ----------
 
   def barSubscribe(params) when is_map(params) do
     oparams = Map.put_new(params, :options, %{})
