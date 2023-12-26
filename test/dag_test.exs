@@ -158,5 +158,19 @@ defmodule TestDag do
 
   end
 
+  test "map_merges" do
+    {d, g} = Blxx.Dag.DagExperiments.bigdag()
+    sg = Blxx.Dag.subqual(g, :root)
+    {_, jmeta} = :digraph.vertex(sg, :j)
+    assert Map.has_key?(jmeta, :la) 
+    assert Map.has_key?(jmeta, :oui)
+    assert Map.has_key?(jmeta[:la], "deux")
+    assert Map.has_key?(jmeta[:la], "un")
+    assert jmeta[:la]["un"] == 1
+    assert jmeta[:la]["deux"] == 2
+    {_, dmeta} = :digraph.vertex(sg, :d)
+    assert Map.has_key?(dmeta, :a)
+    assert dmeta[:a] == "b"
+  end
 
 end
