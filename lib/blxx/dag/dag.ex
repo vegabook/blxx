@@ -63,6 +63,8 @@ defmodule Blxx.Dag do
     # yes nested case anti pattern yada but this is fine with only 3 levels
     # https://elixirforum.com/t/pattern-matching-using-first-rest-in-with-clause-seems-to-fail/60541 
     case :digraph.add_vertex(graph, v, meta) do
+      # TODO handle metadata change or augmentation. Maybe force new vertex, but then don't re-add edge. 
+      #     or maybe something else. 
       v -> 
         case :digraph.add_edge(graph, parent, v) do
           [:"$e" | rest] ->
@@ -103,11 +105,9 @@ defmodule Blxx.Dag do
     with {:vatom, true} <- {:vatom, is_atom(v)},
          {:patom, true} <- {:patom, is_atom(parent)},
          {:tsnum, true} <- {:tsnum, is_number(ts)},
-         {:mmap, true} <- {:mmap, is_map(meta)},
+         {:mmap, true} <- {:mmap, is_map(meta)} do
          # do inserts on the test graph to make sure they work
          # no duplicate edge, also handles parent doesn't exist
-         {:novdupe, true} <-
-           {:novdupe, !Enum.member?(:digraph.out_neighbours(graph, parent), v)} do
       atomic_vedge({detspath, graph}, v, parent, meta, ts)
     else
       {:vatom, false} ->
@@ -122,18 +122,6 @@ defmodule Blxx.Dag do
       {:mmap, false} ->
         {:error, "meta must be a map"}
 
-      {:novdupe, false} ->
-        {:error, "vertex already exists from parent"}
-
-      {:addvertex, {:error, reason}} ->
-        {:error, reason}
-
-      {:addedge, {:error, reason}} ->
-        :dets.delete(detspath, {v, :vertedge, ts, parent, meta})
-        {:error, reason}
-
-      {:insert, false} ->
-        {:error, "vertex insert failed"}
     end
   end
 
