@@ -151,8 +151,6 @@ defmodule TestDag do
 
   test "big_graph" do
     {:ok, {d, g}, f} = fileman()
-
-
     Blxx.Dag.close_store(d)
     assert :ok = File.rm!(f)
 
@@ -171,6 +169,24 @@ defmodule TestDag do
     {_, dmeta} = :digraph.vertex(sg, :d)
     assert Map.has_key?(dmeta, :a)
     assert dmeta[:a] == "b"
+  end
+
+  test "new_meta" do
+    # see if we can change the meta of a vertex
+    {d, g} = Blxx.Dag.DagExperiments.fx()
+    {_, brlmeta} = :digraph.vertex(g, :USDBRL)
+    assert brlmeta[:ticker] == "USDBRL Curncy"
+    assert brlmeta[:source] == :blp
+    sg = Blxx.Dag.subqual(g, :root) # fully qualified subgraph with copied meta from parent nodes
+    {_, brlmeta2} = :digraph.vertex(sg, :USDBRL)
+    assert brlmeta2[:desc] == "latin america"
+
+    Blxx.Dag.add_vertex({d, g}, :USDBRL, :latam, %{desc: "this_is_new_meta for USDBRL"})
+    {_, brlmeta3} = :digraph.vertex(g, :USDBRL)
+    assert brlmeta3[:desc] == "this_is_new_meta for USDBRL"
+    # assert no other keys for brlmeta3
+    assert Map.keys(brlmeta3) == [:desc]
+
   end
 
 end

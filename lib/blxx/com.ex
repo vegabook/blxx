@@ -13,19 +13,19 @@ defmodule Blxx.Com do
     "startDateTime" => DateTime.new!(~D[2023-10-23], ~T[00:00:00]), 
     "endDateTime" => DateTime.new!(~D[2023-10-30], ~T[00:00:00]), "eventTypes" => ["TRADE"]}]})
 
- eventTypes:
- TRADE
- BID
- ASK
- BID_BEST
- ASK_BEST
- BID_YIELD
- ASK_YIELD
- MID_PRICE
- AT_TRADE
- BEST_BID
- BEST_ASK
- SETTLE
+  eventTypes:
+  TRADE
+  BID
+  ASK
+  BID_BEST
+  ASK_BEST
+  BID_YIELD
+  ASK_YIELD
+  MID_PRICE
+  AT_TRADE
+  BEST_BID
+  BEST_ASK
+  SETTLE
   """
   # --------- communications and sockets ----------
 
@@ -170,8 +170,33 @@ defmodule Blxx.Com do
     else
       {:i60, false} -> {:error, "interval must be greater than 60 and less than 1440"}
     end
+      
   end
 
+
+  @doc """
+    ReferenceDataRequest
+    Note overrides are of form [{"fieldId" => "CURVE_DATE", "value" => "20100530"}, ...]
+  """
+  def reference_data_request(
+    securities \\ ["R2048 Govt", "R2044 Govt"],
+    fields \\ ["LAST_PRICE", "PX_BID", "PX_ASK"],
+    overrides \\ []
+  ) do
+    cid = Blxx.Util.random_string()
+    com(
+      {:blp,
+       [
+         "ReferenceDataRequest",
+         %{
+           "securities" => securities,
+           "fields" => fields,
+           "overrides" => overrides
+         },
+       cid
+       ]}
+    )
+  end
 
 
 

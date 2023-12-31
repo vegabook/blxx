@@ -272,7 +272,7 @@ defmodule Blxx.Dag do
     # all meta kv pairs of parent nodes will be passed to 
     # child nodes unless overridden by child nodes
     {n, meta} = :digraph.vertex(graph, root)
-    # recursive merge the maps 
+    # recursive merge the maps. NB clashing keys closer node wins
     newmeta = Blxx.Util.deep_merge(pmeta, meta) 
     
     :digraph.add_vertex(newgraph, n, newmeta)
