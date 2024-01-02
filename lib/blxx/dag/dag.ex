@@ -5,10 +5,9 @@ defmodule Blxx.Dag do
   both or neither. All timestamped so that historic states can be recreated.
   """
 
-  # TODO remove vdupes or some other way for handing new metadata
-  # TODO some asset class metadata may change over time. If I replace the asset class inter node does that
-  #    also remove the edges?
   # TODO ability to remove subtrees and their associated edges
+  # TODO subqual instead of merging maps, why not just have a function for any node 
+  #   that returns its meta and that of all of its parents?
 
   # -------------- dets vstore ---------------
 
@@ -47,12 +46,12 @@ defmodule Blxx.Dag do
     detspath |> to_string |> open_store
   end
 
-  def close_store(dg) when is_tuple(dg) do
+  def close_store(dg) when is_tuple(dg) and tuple_size(dg) == 2 do
     {detspath, _graph} = dg
     :dets.close(detspath)
   end
 
-  def close_store(detspath) do
+  def close_store(detspath) when is_binary(detspath) do #string
     :dets.close(detspath)
   end
 
@@ -271,6 +270,7 @@ defmodule Blxx.Dag do
     # recursive subtree of a graph with starting node root
     # all meta kv pairs of parent nodes will be passed to 
     # child nodes unless overridden by child nodes
+    # TODO make this into separate allchildren function that then has equivalent of allmeta
     {n, meta} = :digraph.vertex(graph, root)
     # recursive merge the maps. NB clashing keys closer node wins
     newmeta = Blxx.Util.deep_merge(pmeta, meta) 
@@ -284,6 +284,34 @@ defmodule Blxx.Dag do
     end
     newgraph
   end
+
+
+  def allparents(graph, node, parents \\ [])
+  # get all the meta of a node and its parents 
+  # this is a header because of the default argument
+
+  def allparents(graph, node, parents) do
+    Enum.reduce(:digraph.in_neighbours(graph, node), parents, fn v, acc ->
+      [v | allparents(graph, v, acc)]
+    end)
+  end
+
+  def allparents(graph, :root, parents) do
+    parents
+  end
+
+
+  def allmeta(graph, node) do
+    # get all the meta of a node and its parents 
+    with {_, _} <- :digraph.vertex(graph, node) do
+      [node] ++ allparents(graph, node)
+      |> Enum.map(fn v -> :digraph.vertex(graph, v) end)
+    else
+      false -> []
+    end
+  end
+
+
 
 
 end
