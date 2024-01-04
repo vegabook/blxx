@@ -47,7 +47,7 @@ defmodule Blxx.Dag.DagExperiments do
   def fx() do
     {:ok, {d, g}, f} = fileman()
 
-    dev = [
+    devlist = [
       :USDGBP,
       :USDCHF,
       :USDCAD,
@@ -59,7 +59,7 @@ defmodule Blxx.Dag.DagExperiments do
       :USDHKD,
     ]
 
-    emea = [
+    emealist = [
       :EURHUF,
       :USDRUB,
       :USDTRY,
@@ -72,7 +72,7 @@ defmodule Blxx.Dag.DagExperiments do
       :USDAED,
     ]
 
-    asia = [
+    asialist = [
       :USDCNY,
       :USDINR,
       :USDKRW,
@@ -82,7 +82,7 @@ defmodule Blxx.Dag.DagExperiments do
       :USDPHP,
     ]
 
-    latam = [
+    latamlist = [
       :USDMXN,
       :USDBRL,
       :USDCOP,
@@ -95,14 +95,14 @@ defmodule Blxx.Dag.DagExperiments do
     Blxx.Dag.add_vertex({d, g}, :emea, :fx, %{:desc => "europe, middle east, africa"})
     Blxx.Dag.add_vertex({d, g}, :asia, :fx, %{:desc => "asia"})
     Blxx.Dag.add_vertex({d, g}, :latam, :fx, %{:desc => "latin america"})
-    Blxx.Dag.add_vertices({d, g}, dev, :dev, fn x -> %{:source => :blp, 
-      :ticker => to_string(x) <> " Curncy"} end)
-    Blxx.Dag.add_vertices({d, g}, emea, :emea, fn x -> %{:source => :blp, 
-      :ticker => to_string(x) <> " Curncy"} end)
-    Blxx.Dag.add_vertices({d, g}, asia, :asia, fn x -> %{:source => :blp, 
-      :ticker => to_string(x) <> " Curncy"} end)
-    Blxx.Dag.add_vertices({d, g}, latam, :latam, fn x -> %{:source => :blp, 
-      :ticker => to_string(x) <> " Curncy"} end)
+    Blxx.Dag.add_vertices({d, g}, devlist, :dev, fn x -> 
+      %{sources: %{blp: %{topic: to_string(x) <> " Curncy", fields: ["LAST_PRICE"]}}} end)
+    Blxx.Dag.add_vertices({d, g}, emealist, :emea, fn x -> 
+      %{sources: %{blp: %{topic: to_string(x) <> " Curncy", fields: ["LAST_PRICE"]}}} end)
+    Blxx.Dag.add_vertices({d, g}, asialist, :asia, fn x -> 
+      %{sources: %{blp: %{topic: to_string(x) <> " Curncy", fields: ["LAST_PRICE"]}}} end)
+    Blxx.Dag.add_vertices({d, g}, latamlist, :latam, fn x -> 
+      %{sources: %{blp: %{topic: to_string(x) <> " Curncy", fields: ["LAST_PRICE"]}}} end)
 
     {d, g}
 

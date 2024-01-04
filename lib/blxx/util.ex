@@ -2,8 +2,8 @@ defmodule Blxx.Util do
   @moduledoc """
   Utility functions for Blxx
   """
-  def utc_stamp() do
-    DateTime.utc_now() |> DateTime.to_unix(:microsecond)
+  def utc_stamp(stamptime \\ DateTime.utc_now()) do
+    stamptime |> DateTime.to_unix(:microsecond)
   end
 
   

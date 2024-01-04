@@ -3,9 +3,6 @@ defmodule Blxx.Com do
 
   Example commands: 
   phttps://keyring.readthedocs.io/en/stable/arses commands and sends them to bloomberg socket
-  Blxx.Com.com({:blp, [:barsubscribe, [["EURUSD Curncy", "USDZAR Curncy", "R186 Govt", "SPX Index", "GLE FP Equity", "USDJPY Curncy", "GBPUSD Curncy", "BTC Curncy", "EURCZK Curncy", "USDMXN Curncy", "R2048 Govt", "R2048 Govt"], ["LAST_PRICE"], ["interval=1"]]]})
-  Blxx.Com.com({:blp, [:barsubscribe, ["USDMXN Curncy"], ["LAST_PRICE"], ["interval=1"]]]})
-  Blxx.Com.com({:blp, [:barsubscribe, [["EURUSD Curncy", "USDZAR Curncy", "R186 Govt", "SPX Index", "GLE FP Equity", "USDJPY Curncy", "GBPUSD Curncy", "BTC Curncy", "EURCZK Curncy", "USDMXN Curncy", "R2048 Govt", "R2048 Govt"], ["LAST_PRICE"], ["interval=1"]]]})
   Blxx.Com.com({:blp, ["HistoricalDataRequest", "info"]})
   Blxx.Com.com({:blp, ["HistoricalDataRequest", %{"securities" => ["USDZAR Curncy"], 
   "  fields" => ["PX_BID"], "startDate" =>"20000101", "endDate" => "20231030"}]})
@@ -29,6 +26,15 @@ defmodule Blxx.Com do
   """
   # --------- communications and sockets ----------
 
+  # MAIN TODO
+  # 1. create a disk based dag for FX
+  # 2. create barsubscibe for any node in the dag
+  # 3. use dynamic supervisor launch barsubscribe genservers
+  # 4. only the barsubscibe genservers can get history which is specified by timestamp at launch
+  # 5. barsubscribe genserver must mark when it cannot get history for a period so that it is not fetched again
+  # 6. barsubscribe genserver must populate a stream for the node. 
+  # 7. q. what if multiple barsubscribes of inner nodes subscribe to same leaf topic? Share?
+
   def sockpid() do
     Registry.lookup(Blxx.Registry, :bbgsocket_pid)
     |> List.first()
@@ -46,7 +52,10 @@ defmodule Blxx.Com do
   # use logger for all communications
   # implement "raw" command
   def com({:blp, [:barsubscribe, %{tickers: tickers, fields: fields} = params]}) do
-    # TODO NB this is messy. Does the syntax work? Also single barhandler best.
+    # TODO possibly just move this into barSusbscribe
+    # TODO can only subscribe to something that is in the dag tree but also implement a raw command
+    # TODO send cid which is the dag tree node, to the DynSupervisor
+
     # insert with here to be sure it works for example: 
     # with true <- Enum.all?(params, fn p -> is_list(p) end),
     #  true <- Map.has_key?(params, "Interval") end) do
@@ -98,7 +107,7 @@ defmodule Blxx.Com do
 
   # --------- reference ----------
 
-  def historical_data_request(
+  def historicalDataRequest(
     # daily data
       securities \\ ["USDZAR Curncy", "EURUSD Curncy"],
       fields \\ ["LAST_PRICE", "PX_BID", "PX_ASK"],
@@ -122,7 +131,7 @@ defmodule Blxx.Com do
   end
 
 
-  def intraday_tick_request(
+  def intradayTickRequest(
       security \\ "USDZAR Curncy", 
       startDateTime \\ DateTime.new!(~D[2023-10-23], ~T[10:00:00]),
       endDateTime \\ DateTime.new!(~D[2023-10-23], ~T[10:00:05]),
@@ -145,7 +154,7 @@ defmodule Blxx.Com do
   end
 
 
-  def intraday_bar_request(
+  def intradayBarRequest(
       security \\ "XBTUSD Curncy", 
       startDateTime \\ DateTime.new!(~D[2023-10-23], ~T[10:00:00]),
       endDateTime \\ DateTime.new!(~D[2023-10-23], ~T[11:10:00]),
@@ -178,7 +187,7 @@ defmodule Blxx.Com do
     ReferenceDataRequest
     Note overrides are of form [{"fieldId" => "CURVE_DATE", "value" => "20100530"}, ...]
   """
-  def reference_data_request(
+  def referenceDataRequest(
     securities \\ ["R2048 Govt", "R2044 Govt"],
     fields \\ ["LAST_PRICE", "PX_BID", "PX_ASK"],
     overrides \\ []

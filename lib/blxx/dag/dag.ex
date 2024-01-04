@@ -6,8 +6,10 @@ defmodule Blxx.Dag do
   """
 
   # TODO ability to remove subtrees and their associated edges
-  # TODO subqual instead of merging maps, why not just have a function for any node 
-  #   that returns its meta and that of all of its parents?
+  # TODO how to handle ordering since for some asset classes we will add lots of vertices and edges later
+  #      possibly move to mnesia instead of dets. Then can index on timestamp but Q: can "next" in index be used?
+  #      * Alternatively use DETS table but key on timestamp and not on vertex name
+  #      This will allow for getting all the keys, then sorting them and rewriting the graph
 
   # -------------- dets vstore ---------------
 
@@ -190,6 +192,7 @@ defmodule Blxx.Dag do
 
   def clean_nodes(detspath) do
     # remove all vertices, vertedges, and edges from the vstore
+    # dangerous!
     :dets.delete_all_objects(detspath)
 
     :dets.insert_new(
@@ -265,11 +268,12 @@ defmodule Blxx.Dag do
     inters(graph, [root])
   end
 
-
+  @doc """
+  recursive subtree of a graph with starting node root
+  all meta kv pairs of parent nodes will be passed to
+  child nodes unless overridden by child nodes
+  """
   def subqual(graph, root, newgraph \\ :digraph.new(), pmeta \\ %{}) when is_atom(root) do
-    # recursive subtree of a graph with starting node root
-    # all meta kv pairs of parent nodes will be passed to 
-    # child nodes unless overridden by child nodes
     # TODO make this into separate allchildren function that then has equivalent of allmeta
     {n, meta} = :digraph.vertex(graph, root)
     # recursive merge the maps. NB clashing keys closer node wins
@@ -286,32 +290,44 @@ defmodule Blxx.Dag do
   end
 
 
-  def allparents(graph, node, parents \\ [])
-  # get all the meta of a node and its parents 
+  @doc """
+  get all the meta of a node and its parents 
+  """
+  def allParents(graph, node, parents \\ [])
   # this is a header because of the default argument
 
-  def allparents(graph, node, parents) do
+  def allParents(graph, node, parents) do
     Enum.reduce(:digraph.in_neighbours(graph, node), parents, fn v, acc ->
-      [v | allparents(graph, v, acc)]
+      [v | allParents(graph, v, acc)]
     end)
   end
 
-  def allparents(graph, :root, parents) do
+  def allParents(graph, :root, parents) do
     parents
   end
 
 
-  def allmeta(graph, node) do
-    # get all the meta of a node and its parents 
+  @doc """ 
+  get all the meta of a node and its parents 
+  """
+  def allMeta(graph, node) do
     with {_, _} <- :digraph.vertex(graph, node) do
-      [node] ++ allparents(graph, node)
+      [node] ++ allParents(graph, node)
       |> Enum.map(fn v -> :digraph.vertex(graph, v) end)
     else
       false -> []
     end
   end
 
-
+  
+  @doc """
+  flatten the output of allMeta maps into a single map
+  """
+  def flattenMeta(metalist) do
+      Enum.reduce(metalist, %{}, fn {_, x}, acc ->
+        Map.merge(acc, x)
+      end)
+  end
 
 
 end
