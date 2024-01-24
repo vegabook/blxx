@@ -293,26 +293,26 @@ defmodule Blxx.Dag do
   @doc """
   get all the meta of a node and its parents 
   """
-  def allParents(graph, node, parents \\ [])
+  def all_parents(graph, node, parents \\ [])
   # this is a header because of the default argument
 
-  def allParents(graph, node, parents) do
+  def all_parents(graph, node, parents) do
     Enum.reduce(:digraph.in_neighbours(graph, node), parents, fn v, acc ->
-      [v | allParents(graph, v, acc)]
+      [v | all_parents(graph, v, acc)]
     end)
   end
 
-  def allParents(graph, :root, parents) do
+  def all_parents(graph, :root, parents) do
     parents
   end
 
 
   @doc """ 
-  get all the meta of a node and its parents 
+  get all the_mmeta of a node and its parents 
   """
-  def allMeta(graph, node) do
+  def all_meta(graph, node) do
     with {_, _} <- :digraph.vertex(graph, node) do
-      [node] ++ allParents(graph, node)
+      [node] ++ all_parents(graph, node)
       |> Enum.map(fn v -> :digraph.vertex(graph, v) end)
     else
       false -> []
@@ -323,7 +323,7 @@ defmodule Blxx.Dag do
   @doc """
   flatten the output of allMeta maps into a single map
   """
-  def flattenMeta(metalist) do
+  def flatten_meta(metalist) do
       Enum.reduce(metalist, %{}, fn {_, x}, acc ->
         Map.merge(acc, x)
       end)

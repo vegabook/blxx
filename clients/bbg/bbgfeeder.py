@@ -65,7 +65,7 @@ DEFAULT_TOPIC_PREFIX = "/ticker/"
 DEFAULT_INTERVAL = 1 # change to number of seconds for slower 
 DEFAULT_TOPIC = [] # put a ticker in here if you always want to receive it
 DEFAULT_FIELDS = ["LAST_PRICE", "BID", "ASK"]
-URLMASK = "wss://scendance.com/bbgws/{}/{}/websocket"
+URLMASK = "wss://suprabonds.com/bbgws/{}/{}/websocket"
 
 # ------------ parse the command line ---------------
 
@@ -612,7 +612,8 @@ async def data_forwarder(websocket, pool):
             # potentially expensive msgpack operation in process pool
             datpacked = await msgpacker(dat, pool)
             if datpacked is not None:
-                print(f"{tag =} {len(datpacked)=}")
+                if tag != "bardata":
+                    print(f"{tag =} {len(datpacked)=}")
                 # Add message header to communicate if it's a large reference response
                 headerpacked = headerpack(datpacked, 1 if tag == RESP_REF else 0)
                 try:
