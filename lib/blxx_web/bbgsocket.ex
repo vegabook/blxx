@@ -87,7 +87,7 @@ defmodule BlxxWeb.BbgSocket do
           timestamp: timestamp
         }
         |> insert_db.()
-        IO.puts("Received bar data")
+        IO.puts("#{DateTime.utc_now()} - received bar data")
 
       ["refdata", x] -> 
           IO.inspect(x)

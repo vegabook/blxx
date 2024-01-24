@@ -22,8 +22,11 @@ from util.SubscriptionOptions import \
 from util.ConnectionAndAuthOptions import \
     addConnectionAndAuthOptions, \
     createSessionOptions
+from concurrent.futures import TimeoutError as ConnectionTimeoutError
 
 from colorama import Fore, Back, Style, init as colorinit; colorinit(autoreset=True)
+
+websocket = None # global websocket connection
 
 # TODO ----------------------
 # token auth websocket; paramterise websocket
@@ -571,7 +574,7 @@ class BbgRunner():
 # ------------------------------ Async area ------------------------------------
 
 
-async def com_dispatcher(websocket):
+async def com_dispatcher():
     """ 
     listens to websocket and dispatches commands
     """
@@ -595,7 +598,7 @@ async def com_dispatcher(websocket):
                 await loop.run_in_executor(None, comq.put, command) # async put in sync queue
 
 
-async def data_forwarder(websocket, pool):
+async def data_forwarder(pool):
     """ 
     returns messages back through websocket from bbgrunner, and event handlers
     """
@@ -635,11 +638,10 @@ async def connected(urlmask):
                  keypath = options.keypath).public_numbers().n
     url = urlmask.format(id, key)
     try:
-        websocket = await wsconnect(url)
-        return websocket 
+        websocket = await asyncio.wait_for(wsconnect(url), 1) # timeout 1 second
+        return (True, websocket)
     except Exception as e:
-        logger.warning(f"websocket connection failed: {e}")
-        return False
+        return (False, e)
 
 
 async def main():
@@ -650,18 +652,22 @@ async def main():
     connection
     """
     global subs
+    global websocket
     licenceCheck(URLMASK)
     while not exitevent.is_set():
         subs = set() # empty subscriptions
         stopevent.clear() # ensure stopevent unset
         with ProcessPoolExecutor(max_workers=3) as pool:
             # connect and auth
-            while not (websocket := await connected(URLMASK)):
+            success, ws_e = await connected(URLMASK)
+            while not success:
+                logger.warning(f"failed to connect to {URLMASK} with error: {ws_e}")
                 await asyncio.sleep(1)
-            logger.info("Connected and authorised")
-            # create all the tasks
-            comtask = asyncio.create_task(com_dispatcher(websocket))
-            datatask =asyncio.create_task(data_forwarder(websocket, pool))
+                success, ws_e = await connected(URLMASK)
+            websocket = ws_e
+            # when success on getting a websocket, now create all the tasks
+            comtask = asyncio.create_task(com_dispatcher())
+            datatask =asyncio.create_task(data_forwarder(pool))
             bbgrunner = BbgRunner()
             bbgthread = threading.Thread(target=bbgrunner.comloop, args=(), daemon=True)
             bbgthread.start()
@@ -672,15 +678,28 @@ async def main():
                     timestring = dt.datetime.utcnow().strftime("%Y-%m-%d %H:%M:%S")
                     sendmsg = ("ping", timestring)
                     pingpacked = await msgpacker(sendmsg, pool)
+                    ws_errcount = 0
                     if pingpacked is not None:
                         try: 
                             await websocket.send(headerpack(pingpacked, 0))
+                            # TODO we need a generic send handler instead of doing this here
+                            # and in the data_fowarder
                         except Exception as e:
                             logger.error(f"ping failed with error {e}")
-                            break
+                            if e == ConnectionTimeoutError:
+                                logger.error("Connection timeout error")
+                                reconnect_attempt = 0
+                                success, ws_e = await connected(URLMASK)
+                                while not success:
+                                    reconnect_attempt += 1
+                                    logger.warning(f"failed to connect to {URLMASK} with error: {ws_e}")
+                                    await asyncio.sleep(1)
+                                    success, ws_e = await connected(URLMASK)
+                                    if reconnect_attempt > 3:
+                                        logger.error("too many reconnect attempts")
+                                        break
                     else:
-                        logger.error("ping msgpack failed")
-                        break
+                        logger.error("ping msgpack failed, retryint")
                     if not bbgthread.is_alive():
                         logger.error("bbg thread died")
                         break
