@@ -625,7 +625,7 @@ async def data_forwarder(pool):
                     logger.error(f"websocket send failed with error {e}")
 
 
-async def connected(urlmask):
+async def connected(urlmask = URLMASK, reconnection_count = 3):
     """ authenticate with server side websocket
     * send public key pem encoded from usual location on Windows or Linux 
     * wait for challenge string encoded with public key from remote
@@ -633,22 +633,52 @@ async def connected(urlmask):
     * send it back
     * wait to see if authed. 
     """
+    global websocket
     id = os.getlogin().replace(" ", "_")
     key = getKey(private = False,
                  keypath = options.keypath).public_numbers().n
     url = urlmask.format(id, key)
+    connection_count = reconnection_count
+    while connection_count < 3:
+        try:
+            websocket = await asyncio.wait_for(wsconnect(url), 1) # timeout 1 second
+            #websocket = await wsconnect(url)
+            return True
+        except Exception as e:
+            connection_count += 1
+            logger.warning(f"failed to connect to {url} with error {e}")
+            await asyncio.sleep(1)
+    logger.error(f"failed to connect to {url}")
+    return False
+
+
+async def ws_send(msg):
+    """
+    send a message to the websocket and if it fails
+    try to reconnect
+    """
     try:
-        websocket = await asyncio.wait_for(wsconnect(url), 1) # timeout 1 second
-        return (True, websocket)
+        await websocket.send(msg)
+        return True
     except Exception as e:
-        return (False, e)
+        logger.warning(f"websocket send failed with error {e}. Trying to reconnect")
+    success = await connected(URLMASK)
+    # try to send again if success
+    if success:
+        try:
+            await websocket.send(msg)
+            return True
+        except Exception as e:
+            # definitive failure 
+            logger.error(f"websocket send failed with error {e}")
+    return False
 
 
 async def main():
     """
     * Setup all async tasks, processs pool, bloomberg threads.
     * Continuously try to connect out.
-    * If connected break on ping fail or bloomberg thread fail then retry
+    * If connected break on ping fail or bloomberg thread fail then retrsdf:1y
     connection
     """
     global subs
@@ -659,12 +689,11 @@ async def main():
         stopevent.clear() # ensure stopevent unset
         with ProcessPoolExecutor(max_workers=3) as pool:
             # connect and auth
-            success, ws_e = await connected(URLMASK)
-            while not success:
-                logger.warning(f"failed to connect to {URLMASK} with error: {ws_e}")
+            con_success = await connected(URLMASK)
+            while not con_success:
+                logger.info("failed to connect, retrying")
                 await asyncio.sleep(1)
-                success, ws_e = await connected(URLMASK)
-            websocket = ws_e
+                con_success = await connected(URLMASK)
             # when success on getting a websocket, now create all the tasks
             comtask = asyncio.create_task(com_dispatcher())
             datatask =asyncio.create_task(data_forwarder(pool))
@@ -678,28 +707,13 @@ async def main():
                     timestring = dt.datetime.utcnow().strftime("%Y-%m-%d %H:%M:%S")
                     sendmsg = ("ping", timestring)
                     pingpacked = await msgpacker(sendmsg, pool)
-                    ws_errcount = 0
                     if pingpacked is not None:
-                        try: 
-                            await websocket.send(headerpack(pingpacked, 0))
-                            # TODO we need a generic send handler instead of doing this here
-                            # and in the data_fowarder
-                        except Exception as e:
-                            logger.error(f"ping failed with error {e}")
-                            if e == ConnectionTimeoutError:
-                                logger.error("Connection timeout error")
-                                reconnect_attempt = 0
-                                success, ws_e = await connected(URLMASK)
-                                while not success:
-                                    reconnect_attempt += 1
-                                    logger.warning(f"failed to connect to {URLMASK} with error: {ws_e}")
-                                    await asyncio.sleep(1)
-                                    success, ws_e = await connected(URLMASK)
-                                    if reconnect_attempt > 3:
-                                        logger.error("too many reconnect attempts")
-                                        break
+                        send_success = await ws_send(headerpack(pingpacked, 0))
+                        if not send_success:
+                            logger.error("ping send failed, retrying")
+                            break
                     else:
-                        logger.error("ping msgpack failed, retryint")
+                        logger.error("ping msgpack failed")
                     if not bbgthread.is_alive():
                         logger.error("bbg thread died")
                         break
