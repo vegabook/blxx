@@ -310,7 +310,7 @@ class SubscriptionEventHandler(object):
 
             # something else --->
             else:
-                logger.warning(f"unknown message type {msgtype}")
+                logger.warning(f"Unknown message type {msgtype}")
                 breakpoint()
 
     def processMiscEvents(self, event):
@@ -381,7 +381,7 @@ class BbgRunner():
                 stopevent.set()
                 exitevent.set()
                 return
-            logger.info(f"started {servstring} service.")
+            logger.info(f"Started {servstring} service.")
 
         # ----------- reference and instruments data session -----------
         roptions = sessionOptions # copy command line options 
@@ -404,7 +404,7 @@ class BbgRunner():
                 logger.error(f"Failed to open {servstring} service.")
                 stopevent.set()
                 return
-            logger.info(f"started {servstring} service.")
+            logger.info(f"Started {servstring} service.")
 
 
     def sendInfo(self, command, request):
@@ -470,13 +470,13 @@ class BbgRunner():
     def comloop(self):
         """ command handling main loop """
         global subs # allow re-assignment to empty set
-        logger.info(f"{Fore.GREEN}running bbg feeder{Style.RESET_ALL}")
+        logger.info(f"{Fore.GREEN}Running bbg feeder{Style.RESET_ALL}")
         try:
             # continuously monitor command queue
             while not stopevent.is_set():      
                 try:
                     com = comq.get(timeout = 0.5)
-                    logger.info(f"bbg thread received command {com}")
+                    logger.info(f"Bloomberg thread received command {com}")
                 except Empty:
                     continue
 
@@ -577,7 +577,7 @@ async def com_dispatcher():
     """ 
     listens to websocket and dispatches commands
     """
-    logger.info("hello com_dispatcher")
+    logger.info("Hello com_dispatcher")
     loop = asyncio.get_event_loop()
     while not stopevent.is_set():
         try:
@@ -590,10 +590,10 @@ async def com_dispatcher():
                 # compare to data_forwarder 
                 command = msgpack.unpackb(compack, timestamp=3)
             except:
-                logger.error("msgpack command deserialization failed")
+                logger.error("Msgpack command deserialization failed")
                 command = None
             if command is not None:
-                logger.info(f"{Fore.YELLOW}command {Style.BRIGHT}{command}{Style.RESET_ALL}")
+                logger.info(f"{Fore.YELLOW}Command {Style.BRIGHT}{command}{Style.RESET_ALL}")
                 await loop.run_in_executor(None, comq.put, command) # async put in sync queue
 
 
@@ -601,7 +601,7 @@ async def data_forwarder(pool):
     """ 
     returns messages back through websocket from bbgrunner, and event handlers
     """
-    logger.info("hello data_forwarder")
+    logger.info("Hello data_forwarder")
     loop = asyncio.get_event_loop()
     while not stopevent.is_set():
         try:
@@ -638,11 +638,15 @@ async def connected(urlmask = URLMASK, reconnection_count = 3, wait_time = 1):
     while True:
         try:
             websocket = await asyncio.wait_for(wsconnect(url), 1) # timeout 1 second
-            logger.info(f"connected")
+            logger.info(f"Connected")
             return True
+        except asyncio.TimeoutError:
+            connection_count -= 1
+            logger.warning(f"Connection attempt timed out. Reconnection attempts left: {connection_count}")
+            await asyncio.sleep(wait_time)
         except Exception as e:
             connection_count -= 1
-            logger.warning(f"Failed to connect with error {e}. Reconnect attempts left {connection_count}")
+            logger.warning(f"Connection attempt failed with error {e}. Reconnection attempts left: {connection_count}")
             await asyncio.sleep(wait_time)
         if connection_count == 0:
             return False
