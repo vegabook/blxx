@@ -18,6 +18,7 @@ defmodule BlxxWeb.BbgSocket do
   def connect(%{params: %{"id" => id, "key" => key}}) do
     # Callback to retrieve relevant data from the connection.
     # The map contains options, params, transport and endpoint keys.
+    IO.puts("connection requested")
     if key != System.get_env("BLXXKEY") do
       IO.puts("Key is not correct")
       {:error, :unauthorized}

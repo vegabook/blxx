@@ -14,6 +14,7 @@ import logging
 import socket
 import os
 from sockauth import getKey
+from collections import deque
 import struct
 
 from util.SubscriptionOptions import \
@@ -26,16 +27,12 @@ from concurrent.futures import TimeoutError as ConnectionTimeoutError
 
 from colorama import Fore, Back, Style, init as colorinit; colorinit(autoreset=True)
 
-websocket = None # global websocket connection
 
 # TODO ----------------------
 # token auth websocket; paramterise websocket
-# benchmarks to check if dispatcher improves latency under heavy loads
 # resubscribe every x hours
 # change all snake case to camelcase
-# add instrument metadata to database
 # check out MarketListSubscriptionExample
-# refactor subscriptions to take full strings, so that we can unify bars and also get mktlist stuff like chain
 
 # -------------- global queues for communication between classes and handlers -------------
 
@@ -43,7 +40,9 @@ comq = Queue() # global que for commands
 dataq = Queue() # global queue for data
 stopevent = threading.Event() # will reset and retry
 exitevent = threading.Event() # exits the program
-subs = set()  
+subs = set()  # subscriptions
+websocket = None # global websocket connection
+buffdeque = deque([], maxlen = 10000)
 
 # --------------- set logger ------------------------
 
@@ -619,13 +618,10 @@ async def data_forwarder(pool):
                     print(f"{tag =} {len(datpacked)=}")
                 # Add message header to communicate if it's a large reference response
                 headerpacked = headerpack(datpacked, 1 if tag == RESP_REF else 0)
-                try:
-                    await websocket.send(headerpacked)
-                except Exception as e:
-                    logger.error(f"websocket send failed with error {e}")
+                await ws_send(headerpacked, retry_connect = False) # retry_connect handled by ping
 
 
-async def connected(urlmask = URLMASK, reconnection_count = 3):
+async def connected(urlmask = URLMASK, reconnection_count = 3, wait_time = 1):
     """ authenticate with server side websocket
     * send public key pem encoded from usual location on Windows or Linux 
     * wait for challenge string encoded with public key from remote
@@ -639,39 +635,42 @@ async def connected(urlmask = URLMASK, reconnection_count = 3):
                  keypath = options.keypath).public_numbers().n
     url = urlmask.format(id, key)
     connection_count = reconnection_count
-    while connection_count < 3:
+    while True:
         try:
             websocket = await asyncio.wait_for(wsconnect(url), 1) # timeout 1 second
-            #websocket = await wsconnect(url)
+            logger.info(f"connected")
             return True
         except Exception as e:
-            connection_count += 1
-            logger.warning(f"failed to connect to {url} with error {e}")
-            await asyncio.sleep(1)
-    logger.error(f"failed to connect to {url}")
-    return False
+            connection_count -= 1
+            logger.warning(f"failed to connect with error {e}. Reconnect attempts left {connection_count}")
+            await asyncio.sleep(wait_time)
+        if connection_count == 0:
+            return False
 
 
-async def ws_send(msg):
+
+async def ws_send(msg, retry_connect = False):
     """
     send a message to the websocket and if it fails
     try to reconnect
     """
-    try:
-        await websocket.send(msg)
-        return True
-    except Exception as e:
-        logger.warning(f"websocket send failed with error {e}. Trying to reconnect")
-    success = await connected(URLMASK)
-    # try to send again if success
-    if success:
+    buffdeque.appendleft(msg) 
+    # TODO NB refactor with if websocket.open (returns boolean)
+    while len(buffdeque) > 0:
+        if not websocket.open:
+            if retry_connect:
+                await connected(URLMASK, 20, 3)
+            else:
+                success = False
+                break
         try:
-            await websocket.send(msg)
-            return True
+            await websocket.send(buffdeque[-1])
+            buffdeque.pop() # remove once sent
+            success = True
         except Exception as e:
-            # definitive failure 
-            logger.error(f"websocket send failed with error {e}")
-    return False
+            logger.warning(f"websocket send failed with error {e}. Buffer length: {len(buffdeque)}")
+            success = False
+    return success
 
 
 async def main():
@@ -689,11 +688,11 @@ async def main():
         stopevent.clear() # ensure stopevent unset
         with ProcessPoolExecutor(max_workers=3) as pool:
             # connect and auth
-            con_success = await connected(URLMASK)
+            con_success = await connected(URLMASK, 3, 1)
             while not con_success:
                 logger.info("failed to connect, retrying")
                 await asyncio.sleep(1)
-                con_success = await connected(URLMASK)
+                con_success = await connected(URLMASK, 3, 1)
             # when success on getting a websocket, now create all the tasks
             comtask = asyncio.create_task(com_dispatcher())
             datatask =asyncio.create_task(data_forwarder(pool))
@@ -708,7 +707,7 @@ async def main():
                     sendmsg = ("ping", timestring)
                     pingpacked = await msgpacker(sendmsg, pool)
                     if pingpacked is not None:
-                        send_success = await ws_send(headerpack(pingpacked, 0))
+                        send_success = await ws_send(headerpack(pingpacked, 0), retry_connect = True)
                         if not send_success:
                             logger.error("ping send failed, retrying")
                             break
