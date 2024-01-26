@@ -642,7 +642,7 @@ async def connected(urlmask = URLMASK, reconnection_count = 3, wait_time = 1):
             return True
         except Exception as e:
             connection_count -= 1
-            logger.warning(f"failed to connect with error {e}. Reconnect attempts left {connection_count}")
+            logger.warning(f"Failed to connect with error {e}. Reconnect attempts left {connection_count}")
             await asyncio.sleep(wait_time)
         if connection_count == 0:
             return False
@@ -668,7 +668,8 @@ async def ws_send(msg, retry_connect = False):
             buffdeque.pop() # remove once sent
             success = True
         except Exception as e:
-            logger.warning(f"websocket send failed with error {e}. Buffer length: {len(buffdeque)}")
+            buffdeque.clear()
+            logger.warning(f"Websocket send failed with error {e}. Buffer cleared")
             success = False
     return success
 
@@ -684,13 +685,14 @@ async def main():
     global websocket
     licenceCheck(URLMASK)
     while not exitevent.is_set():
+        buffdeque.clear() # empty buffer
         subs = set() # empty subscriptions
         stopevent.clear() # ensure stopevent unset
         with ProcessPoolExecutor(max_workers=3) as pool:
             # connect and auth
             con_success = await connected(URLMASK, 3, 1)
             while not con_success:
-                logger.info("failed to connect, retrying")
+                logger.info("Failed to connect, retrying")
                 await asyncio.sleep(1)
                 con_success = await connected(URLMASK, 3, 1)
             # when success on getting a websocket, now create all the tasks
@@ -709,12 +711,12 @@ async def main():
                     if pingpacked is not None:
                         send_success = await ws_send(headerpack(pingpacked, 0), retry_connect = True)
                         if not send_success:
-                            logger.error("ping send failed, retrying")
+                            logger.error("Ping send failed, retrying")
                             break
                     else:
-                        logger.error("ping msgpack failed")
+                        logger.error("Ping msgpack failed")
                     if not bbgthread.is_alive():
-                        logger.error("bbg thread died")
+                        logger.error("Bloomberg thread died")
                         break
             except Exception as e:
                 logger.error(f"ping loop error {e}")
