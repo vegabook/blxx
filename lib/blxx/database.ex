@@ -17,6 +17,10 @@ defmodule Blxx.Database do
     {:reply, :ok, Map.put(db_state, key, [value | Map.get(db_state, key, [])])}
   end
 
+  def handle_call(:get, _from, db_state) do
+    {:reply, db_state, db_state}
+  end
+
   def handle_call({:get, key, num}, _from, db_state) do
     vals =
       db_state

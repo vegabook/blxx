@@ -22,10 +22,10 @@ defmodule Blxx.Application do
       # {Blxx.Worker, arg}
       # Start the Registry
       {Registry, keys: :unique, name: Blxx.Registry},
-      # Start the DynSupervisor
-      {Blxx.DynSupervisor, name: DynSupervisor},
       # start the database
-      {Blxx.Database, name: Database}
+      {Blxx.Database, name: Database},
+      # start the refhandler
+      {Blxx.RefHandler, name: RefHandler},
     ]
 
     # See https://hexdocs.pm/elixir/Supervisor.html

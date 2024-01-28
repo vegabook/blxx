@@ -42,7 +42,7 @@ stopevent = threading.Event() # will reset and retry
 exitevent = threading.Event() # exits the program
 subs = set()  # subscriptions
 websocket = None # global websocket connection
-buffdeque = deque([], maxlen = 10000)
+buffdeque = deque([], maxlen = 100000)
 
 # --------------- set logger ------------------------
 
@@ -668,8 +668,7 @@ async def ws_send(msg, retry_connect = False):
                 success = False
                 break
         try:
-            await websocket.send(buffdeque[-1])
-            buffdeque.pop() # remove once sent
+            await websocket.send(buffdeque.pop())
             success = True
         except Exception as e:
             buffdeque.clear()

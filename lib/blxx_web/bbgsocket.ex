@@ -88,10 +88,12 @@ defmodule BlxxWeb.BbgSocket do
           timestamp: timestamp
         }
         |> insert_db.()
-        IO.puts("#{DateTime.utc_now()} - received bar data")
 
       ["refdata", x] -> 
-          IO.inspect(x)
+        # TODO over here send this to the Blxx.RefHandler because it will already
+        #   have been told by Blxx.Com.whateverRequest to expect it
+        IO.puts "Received refdata"
+        IO.inspect(x)
 
       ["info", %{"request_type" => request_type, "structure" => structure}] ->
         IO.puts "Received info structure"

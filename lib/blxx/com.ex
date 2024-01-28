@@ -192,7 +192,9 @@ defmodule Blxx.Com do
     fields \\ ["LAST_PRICE", "PX_BID", "PX_ASK"],
     overrides \\ []
   ) do
-    cid = Blxx.Util.random_string()
+    cid = Blxx.Util.random_string(20)
+    # TODO over here send a signal to Blxx.RefHandler to let it know data will come back
+    Blxx.DynSupervisor
     com(
       {:blp,
        [
