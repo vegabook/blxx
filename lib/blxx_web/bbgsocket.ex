@@ -34,81 +34,22 @@ defmodule BlxxWeb.BbgSocket do
     {:ok, state}
   end
 
+  @doc """
+  Checks the message type and takes appropriate action
+  depending on whether its reference or subscription data
+  """
   def in_handler(data) do
     # unpack 8 pbyte msgpack size header
     <<header::binary-size(8), message::binary>> = data
     <<msgtype::little-integer-size(64)>> = header
 
-    # insertdb function TODO fix?
-    insert_db = fn bar -> GenServer.call(Database, {:insert, bar.topic, bar}) end
-
-    payload =
-      if msgtype == @resp_ref do
-        Msgpax.unpack!(message) # TODO put into a separate process because big
-      else
-        Msgpax.unpack!(message)
-      end
-
-    case payload do
-      ["subdata", %{"timestamp" => timestamp, "topic" => topic, "prices" => prices}] ->
-        for %{"field" => field, "value" => value} <- prices do
-          %Tick{source: "bbg", topic: topic, fld: field, value: value, timestamp: timestamp}
-          |> IO.inspect()
-        end
-
-      ["ping", _timestamp] ->
-        :ok
-
-      [
-        "bardata",
-        %{
-          "msgtype" => msgtype,
-          "topic" => topic,
-          "interval" => interval,
-          "numticks" => numticks,
-          "open" => open,
-          "high" => high,
-          "low" => low,
-          "close" => close,
-          "volume" => volume,
-          "timestamp" => timestamp
-        }
-      ] ->
-        %Bar{
-          source: "bbg",
-          msgtype: msgtype,
-          topic: topic,
-          interval: interval,
-          numticks: numticks,
-          open: open,
-          high: high,
-          low: low,
-          close: close,
-          volume: volume,
-          timestamp: timestamp
-        }
-        |> insert_db.()
-
-      ["refdata", x] -> 
-        # TODO over here send this to the Blxx.RefHandler because it will already
-        #   have been told by Blxx.Com.whateverRequest to expect it
-        IO.puts "Received refdata"
-        IO.inspect(x)
-
-      ["info", %{"request_type" => request_type, "structure" => structure}] ->
-        IO.puts "Received info structure"
-        IO.puts(request_type)
-        IO.puts(structure)
-
-      ["info", infomsg] ->
-        IO.puts "Received info"
-        IO.inspect payload
-
-      anything ->
-        IO.puts "Received anything"
-        IO.inspect(anything)
-        :ok
+    if msgtype == @resp_ref do
+      GenServer.cast(Blxx.RefHandler, {:insert, message})
+    else
+      # TODO send to subhandler
+      GenServer.cast(Blxx.SubHandler, {:insert, message})
     end
+
   end
 
   def handle_in({data, _opts}, state) do

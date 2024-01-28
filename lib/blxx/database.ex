@@ -13,8 +13,8 @@ defmodule Blxx.Database do
     {:ok, db_state}
   end
 
-  def handle_call({:insert, key, value}, _from, db_state) do
-    {:reply, :ok, Map.put(db_state, key, [value | Map.get(db_state, key, [])])}
+  def handle_cast({:insert, key, value}, _from, db_state) do
+    {:noreply, Map.put(db_state, key, [value | Map.get(db_state, key, [])])}
   end
 
   def handle_call(:get, _from, db_state) do

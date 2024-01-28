@@ -111,10 +111,11 @@ defmodule Blxx.Com do
     # daily data
       securities \\ ["USDZAR Curncy", "EURUSD Curncy"],
       fields \\ ["LAST_PRICE", "PX_BID", "PX_ASK"],
-      startDate \\ "20231201",
+      startDate \\ "20200101",
       endDate \\ Date.utc_today() |> Date.to_string() |> String.replace("-", "")
     ) do
     cid = Blxx.Util.random_string()
+    IO.puts GenServer.call(Blxx.RefHandler, {:incoming, cid}) # tell refhandler to expect data
     com(
       {:blp,
        [

@@ -4,48 +4,85 @@ defmodule Blxx.RefHandler do
   all packets and returns fully parsed
   """
 
-  # TODO this will handle all reference data requests
-  # and stick them in the database.
-  # must be told about upcoming things to handle by referenceDataRequest, intradayTickRequest, etc.
-  # then must track that it receives a "partial = false" message for each one or 
-  # time out, but reset timeout time on ANY message received because multiple request responses
-  # are received synchronously. 
 
   @ms_timeout 5000
 
   use GenServer
 
-  def start_link(istate \\ []) do
-    # TODO add a timer here that starts as soon as we get an :incoming, 
-    # and if the correl_map is not empty, then this timer constantly gets updated until they're all empty
-    # and if it times out check which correls have not completed. 
-    GenServer.start_link(__MODULE__, istate)
+  def start_link(initial_state \\ []) do
+    GenServer.start_link(__MODULE__, initial_state)
   end
 
   def init(state) do
-    state = %{correl_map: %{}, timeout: System.monotonic_time(:millisecond) + @ms_timeout}
+    state = %{
+      cid_map: %{}, 
+      timeout: System.monotonic_time(:millisecond) + @ms_timeout
+    }
+    Process.send_after(self(), :check_timer, @ms_timeout)
     {:ok, state}
   end
 
-  def handle_call({:incoming, correlid}, _from, state) do
-    Map.put(state[:correl_map], correlid, [])
-    {:reply, {:ok, correlid}}
+
+  @doc """ 
+  prepare data structures for a new incoming request. 
+  """
+  def handle_call({:incoming, cid}, _from, state) do
+    newstate = Kernel.put_in(state, [:cid_map, cid], [])
+    {:reply, :ok, newstate}
   end
 
 
-  def handle_cast({:insert, key, value}, _from, correlid) do
-    # TODO here spawn a message unpacker for speed
-    {:reply, :ok, Map.put(correlid, key, [value | Map.get(correlid, key, [])])}
+  @doc """
+  insert data into the cid_map, advance timer
+  """
+  def handle_cast({:insert, message}, _from, state) do
+    data = Msgpax.unpack!(message) # NOTE spawn here?
+
+    %{
+      "cid" => cid,
+      "data" => data, 
+      "partial" => partial
+    } = data
+    
+    # insert the data into the correct place
+    newstate = 
+      Kernel.put_in(state, [:cid_map, cid], [data | state[:cid_map][cid]]) 
+      |> Kernel.put(state, :timeout, System.monotonic_time(:millisecond) + @ms_timeout)
+
+    if partial == false do   # if this is the last packet
+      Process.send(self(), {:complete, cid})
+    end
+
+    {:noreply, newstate}
   end
 
 
+  @doc """
+  Reference data is sometimes composed of multiple packets, so we need to
+  check iif the reference data is complete, and if so send it to the database
+  """
+  def handle_info({:complete, cid}, state) do
+    newtime = System.monotonic_time(:millisecond) + @ms_timeout
+    Process.send_after(self(), :timeout, @ms_timeout)
+    # TODO now send that cid's data to the Blxx.Database
+    {:noreply, Map.put(state, :timeout, newtime)} 
+  end
+
+
+  @doc """
+  periodically check if timer has expired, if we're still waiting for data
+  """
   def handle_info(:check_timer, state) do
-    # TODO check here if stuff needs to be cancelled
-    # use this: timer_ref = Process.send_after(self(), :check_timer, @ms_timeout)
-    # and this: Process.cancel_timer(timer_ref)
+    Process.send_after(self(), :check_timer, @ms_timeout) # recall later
+
+    if map_size(state[:cid_map]) > 0 do
+      if System.monotonic_time(:millisecond) > state[:timeout] do
+        # Log a warning
+        IO.puts "WARNING: Reference data timeout NOTE log"
+      end
+    end
 
     newtime = System.monotonic_time(:millisecond) + @ms_timeout
-    Process.send_after(self(), :check_timer, @ms_timeout)
     {:noreply, Map.put(state, :timeout, newtime)} 
   end
 
