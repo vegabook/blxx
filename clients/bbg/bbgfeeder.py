@@ -594,8 +594,9 @@ async def com_dispatcher():
                 logger.error("Msgpack command deserialization failed")
                 command = None
             if command is not None:
-                logger.info(f"{Fore.YELLOW}Command {Style.BRIGHT}{command}{Style.RESET_ALL}")
-                await loop.run_in_executor(None, comq.put, command) # async put in sync queue
+                if command[0] != "pong":
+                    logger.info(f"{Fore.YELLOW}Command {Style.BRIGHT}{command}{Style.RESET_ALL}")
+                    await loop.run_in_executor(None, comq.put, command) # async put in sync queue
 
 
 async def data_forwarder(pool):
@@ -701,7 +702,7 @@ async def main():
                 con_success = await connected(URLMASK, 3, 1)
             # when success on getting a websocket, now create all the tasks
             comtask = asyncio.create_task(com_dispatcher())
-            datatask =asyncio.create_task(data_forwarder(pool))
+            datatask = asyncio.create_task(data_forwarder(pool))
             bbgrunner = BbgRunner()
             bbgthread = threading.Thread(target=bbgrunner.comloop, args=(), daemon=True)
             bbgthread.start()
@@ -709,8 +710,7 @@ async def main():
             try:
                 while True:
                     await asyncio.sleep(3) # ping every x seconds
-                    timestring = dt.datetime.utcnow().strftime("%Y-%m-%d %H:%M:%S")
-                    sendmsg = ("ping", timestring)
+                    sendmsg = ("ping", dt.datetime.now(dt.timezone.utc).timestamp())
                     pingpacked = await msgpacker(sendmsg, pool)
                     if pingpacked is not None:
                         send_success = await ws_send(headerpack(pingpacked, 0), retry_connect = True)

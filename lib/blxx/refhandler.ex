@@ -38,8 +38,8 @@ defmodule Blxx.RefHandler do
   @doc """
   insert data into the cid_map, advance timer
   """
-  def handle_cast({:insert, message}, state) do
-    data = Msgpax.unpack!(message) # NOTE spawn here?
+  def handle_cast({:received, message}, state) do
+    data = Msgpax.unpack!(message) # TODO spawn here? If yes then how to handle out-of-order for partial=false
 
     ["refdata", %{
       "cid" => cid,

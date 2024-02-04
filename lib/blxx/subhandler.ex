@@ -42,12 +42,15 @@ defmodule Blxx.SubHandler do
     {:ok, %{}}
   end
 
-  def handle_cast({:insert, message}, state) do
+  def handle_cast({:received, message}, state) do
     # TODO handle
     data = Msgpax.unpack!(message)
     case data do
       ["info", _] -> IO.inspect(data)
       ["status", _] -> IO.inspect(data)
+      ["ping", send_time] -> 
+        stamp = DateTime.utc_now() |> DateTime.to_unix(:microsecond) |> (&(&1 / 1000000)).()
+        Blxx.Com.com({:blp, [:pong, send_time, stamp]})
       _ -> nil
     end
 

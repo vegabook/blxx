@@ -46,9 +46,11 @@ defmodule BlxxWeb.BbgSocket do
     <<msgtype::little-integer-size(64)>> = header
 
     if msgtype == @resp_ref do
-      GenServer.cast(Blxx.RefHandler, {:insert, message})
+      # TODO make these calls so as not to block the refhandler
+      GenServer.cast(Blxx.RefHandler, {:received, message})
     else
-      GenServer.cast(Blxx.SubHandler, {:insert, message})
+      # TODO make these calls so as not to block the subhandler
+      GenServer.cast(Blxx.SubHandler, {:received, message})
     end
 
   end
@@ -62,10 +64,9 @@ defmodule BlxxWeb.BbgSocket do
     {:ok, state}
   end
 
-  def handle_info({:com, command}, state) do
-    # commands handler
-    Logger.info "Received command: #{inspect(command)}"
-    {:push, {:binary, Msgpax.pack!(command)}, state}
+  def handle_info({:com, com}, state) do
+    [command, cid, payld] = com
+    {:push, {:binary, Msgpax.pack!(com)}, state}
   end
 
   def handle_info(m, state) do
