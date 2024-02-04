@@ -7,6 +7,8 @@ defmodule BlxxWeb.BbgSocket do
   Inspired by: https://furlough.merecomplexities.com/elixir/phoenix/tutorial/2021/02/19/binary-websockets-with-elixir-phoenix.html
   """
 
+  require Logger
+
   alias Blxx.Tick
   alias Blxx.Bar
 
@@ -46,31 +48,28 @@ defmodule BlxxWeb.BbgSocket do
     if msgtype == @resp_ref do
       GenServer.cast(Blxx.RefHandler, {:insert, message})
     else
-      # TODO send to subhandler
       GenServer.cast(Blxx.SubHandler, {:insert, message})
     end
 
   end
 
+  @doc """
+  Handles incoming data from the bloomberg terminal
+  """
   def handle_in({data, _opts}, state) do
     # DATA comes back handler
-    # TODO might not have to spawn unless it's reference data. 
-    # check spawn design pattern in general with responsibility boundaries
-    # TODO handle correlation IDs well
-    # TODO test minute bars
-    # TODO database move to disk_log?
     spawn(fn -> in_handler(data) end)
     {:ok, state}
   end
 
   def handle_info({:com, command}, state) do
     # commands handler
-    IO.puts("Received command: #{inspect(command)}")
+    Logger.info "Received command: #{inspect(command)}"
     {:push, {:binary, Msgpax.pack!(command)}, state}
   end
 
   def handle_info(m, state) do
-    IO.puts("Received default handler message: #{inspect(m)}")
+    Logger.info "Received default handler message: #{inspect(m)}"
     {:ok, state}
   end
 

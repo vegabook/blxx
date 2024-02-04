@@ -23,9 +23,11 @@ defmodule Blxx.Application do
       # Start the Registry
       {Registry, keys: :unique, name: Blxx.Registry},
       # start the database
-      {Blxx.Database, name: Database},
-      # start the refhandler
-      {Blxx.RefHandler, name: RefHandler},
+      {Blxx.Database, name: Blxx.Database},
+      # start the reference data handler
+      {Blxx.RefHandler, name: Blxx.RefHandler},
+      # start the subscription handler
+      {Blxx.SubHandler, name: Blxx.SubHandler}
     ]
 
     # See https://hexdocs.pm/elixir/Supervisor.html

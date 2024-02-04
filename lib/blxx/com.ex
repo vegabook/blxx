@@ -34,12 +34,18 @@ defmodule Blxx.Com do
   # 5. barsubscribe genserver must mark when it cannot get history for a period so that it is not fetched again
   # 6. barsubscribe genserver must populate a stream for the node. 
   # 7. q. what if multiple barsubscribes of inner nodes subscribe to same leaf topic? Share?
+  # 8. Convert functions here to snake_case
+  # 9. Consider removing camelCase from this module
+  # 10. Consider moving convenience functions like barSubscribe, referenceDataRequest, etc to a separate module
+
+  # PLEASE NOTE THAT CAMELCASE IS USED HERE TO MATCH THE BLOOMBERG API
 
   def sockpid() do
     Registry.lookup(Blxx.Registry, :bbgsocket_pid)
     |> List.first()
     |> elem(1)
   end
+
 
   # TODO
   #  create processes for each tickers
@@ -63,11 +69,13 @@ defmodule Blxx.Com do
     Enum.map(tickers, fn ticker -> Blxx.DynSupervisor.start_barhandler([ticker, fields]) end)
   end
 
+
   def com({:blp, command}) do
     # use with statement here maybe TODO for validation?
     send(sockpid(), {:com, command})
     :ok
   end
+
 
   def com(bad_command) do
     IO.puts("Unknown command:")
@@ -86,7 +94,7 @@ defmodule Blxx.Com do
          {:topics_is_list, true} <- {:topics_is_list, is_list(oparams[:topics])},
          {:options_is_map, true} <- {:options_is_map, is_map(oparams[:options])} do
       cid = Blxx.Util.random_string()
-      com({:blp, [:BarSubscribe, Map.put_new(oparams, :fields, ["LAST_PRICE"]), cid]})
+      com({:blp, [:BarSubscribe, cid, Map.put_new(oparams, :fields, ["LAST_PRICE"])]})
     else
       {:has_topics, false} -> {:error, "no topics provided"}
       {:has_fields, true} -> {:error, "barSubscribe does not accept fields"}
@@ -106,75 +114,93 @@ defmodule Blxx.Com do
 
 
   # --------- reference ----------
-
-  def historicalDataRequest(
-    # daily data
+  @doc """
+    HistoricalDataRequest daily data request 
+  """
+  def historicalDataRequest(cid \\ Blxx.Util.random_string(),
       securities \\ ["USDZAR Curncy", "EURUSD Curncy"],
       fields \\ ["LAST_PRICE", "PX_BID", "PX_ASK"],
       startDate \\ "20200101",
-      endDate \\ Date.utc_today() |> Date.to_string() |> String.replace("-", "")
+      startDate \\ 
+        Date.utc_today() 
+        |> Date.add(-4) 
+        |> Date.to_string() 
+        |> String.replace("-", ""),
+      endDate \\ 
+        Date.utc_today() 
+        |> Date.to_string() 
+        |> String.replace("-", "")
     ) do
-    cid = Blxx.Util.random_string()
     IO.puts GenServer.call(Blxx.RefHandler, {:incoming, cid}) # tell refhandler to expect data
     com(
       {:blp,
        [
          "HistoricalDataRequest",
+          cid,
          %{
            "securities" => securities,
            "fields" => fields,
            "startDate" => startDate,
            "endDate" => endDate
          },
-       cid 
        ]}
     )
   end
 
 
-  def intradayTickRequest(
+  def intradayTickRequest(cid \\ Blxx.Util.random_string(),
       security \\ "USDZAR Curncy", 
       startDateTime \\ DateTime.new!(~D[2023-10-23], ~T[10:00:00]),
       endDateTime \\ DateTime.new!(~D[2023-10-23], ~T[10:00:05]),
       eventTypes \\ ["TRADE"]
     ) do
-    cid = Blxx.Util.random_string()
+    IO.puts GenServer.call(Blxx.RefHandler, {:incoming, cid}) # tell refhandler to expect data
     com(
       {:blp,
        [
          "IntradayTickRequest",
+         cid,
          %{
            "security" => security,
            "startDateTime" => startDateTime,
            "endDateTime" => endDateTime,
            "eventTypes" => eventTypes
-         },
-         cid
+         }
        ]}
     )
   end
 
 
-  def intradayBarRequest(
-      security \\ "XBTUSD Curncy", 
-      startDateTime \\ DateTime.new!(~D[2023-10-23], ~T[10:00:00]),
-      endDateTime \\ DateTime.new!(~D[2023-10-23], ~T[11:10:00]),
-      interval \\ 1
-    ) do
+  def intradayBarRequest() do
+    intradayBarRequest("XBTUSD Curncy", 
+      DateTime.new!(~D[2023-10-23], ~T[10:00:00]), 
+      DateTime.new!(~D[2023-10-23], ~T[10:10:00]), 
+      1
+    )
+  end
+
+  def intradayBarRequest(security, startDateTime, endDateTime, interval) do
+    cid = ["intradayBarRequest", 
+      security, 
+      startDateTime |> DateTime.to_string, 
+      endDateTime |> DateTime.to_string,
+      interval
+    ] 
+    # tell refhandler to expect data
+    IO.puts GenServer.call(Blxx.RefHandler, {:incoming, cid})
     with {:i60, true} <- {:i60, interval >= 1 and interval <= 1440} do
-      cid = Blxx.Util.random_string()
       com(
         {:blp,
          [
            "IntradayBarRequest",
+           cid,
            %{
              "security" => security,
              "startDateTime" => startDateTime,
              "endDateTime" => endDateTime,
              "interval" => interval,
              "gapFillInitialBar" => true
-           },
-         cid
+           }
          ]}
       )
     else
@@ -186,26 +212,39 @@ defmodule Blxx.Com do
 
   @doc """
     ReferenceDataRequest
-    Note overrides are of form [{"fieldId" => "CURVE_DATE", "value" => "20100530"}, ...]
+    Note overrides are of form [%{"fieldId" => "CURVE_DATE", "value" => "20100530"}, ...]
+    
   """
-  def referenceDataRequest(
-    securities \\ ["R2048 Govt", "R2044 Govt"],
-    fields \\ ["LAST_PRICE", "PX_BID", "PX_ASK"],
-    overrides \\ []
-  ) do
-    cid = Blxx.Util.random_string(20)
-    # TODO over here send a signal to Blxx.RefHandler to let it know data will come back
-    Blxx.DynSupervisor
+
+  def referenceDataRequest() do
+    referenceDataRequest(
+      ["R2048 Govt", "R2044 Govt"], 
+      ["LAST_PRICE", "PX_BID", "PX_ASK"], 
+      [%{"fieldId" => "CURVE_DATE", "value" => "20100530"}]
+    )
+  end
+
+  def referenceDataRequest(securities, fields, overrides) do
+    # convert map to list of strings so that it can be serialised
+    cid = ["referenceDataRequest", 
+      securities, 
+      fields,
+      overrides |> Enum.map(fn m -> Enum.map(m, fn {x, y} -> x <> ":" <> y end) end)
+    ]
+    IO.inspect cid
+    # TODO this should only happen once the command is acknowledged via the {:com, command} 
+    # handler in Blxx.BbgSocket
+    IO.puts GenServer.call(Blxx.RefHandler, {:incoming, cid}) # tell refhandler to expect data
     com(
       {:blp,
        [
          "ReferenceDataRequest",
+         cid,
          %{
            "securities" => securities,
            "fields" => fields,
            "overrides" => overrides
-         },
-       cid
+         }
        ]}
     )
   end

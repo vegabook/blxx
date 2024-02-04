@@ -4,16 +4,18 @@ defmodule Blxx.RefHandler do
   all packets and returns fully parsed
   """
 
+  # TODO move all data out of state and into ETS for better supervisor restart behaviour
 
   @ms_timeout 5000
 
   use GenServer
 
-  def start_link(initial_state \\ []) do
-    GenServer.start_link(__MODULE__, initial_state)
+  def start_link(_opts) do
+    GenServer.start_link(__MODULE__, :ok, name: __MODULE__)
   end
 
-  def init(state) do
+  def init(:ok) do
+    IO.puts "Starting RefHandler"
     state = %{
       cid_map: %{}, 
       timeout: System.monotonic_time(:millisecond) + @ms_timeout
@@ -27,6 +29,7 @@ defmodule Blxx.RefHandler do
   prepare data structures for a new incoming request. 
   """
   def handle_call({:incoming, cid}, _from, state) do
+    IO.puts "Preparing incoming reference data #{cid}"
     newstate = Kernel.put_in(state, [:cid_map, cid], [])
     {:reply, :ok, newstate}
   end
@@ -35,24 +38,23 @@ defmodule Blxx.RefHandler do
   @doc """
   insert data into the cid_map, advance timer
   """
-  def handle_cast({:insert, message}, _from, state) do
+  def handle_cast({:insert, message}, state) do
     data = Msgpax.unpack!(message) # NOTE spawn here?
 
-    %{
+    ["refdata", %{
       "cid" => cid,
       "data" => data, 
       "partial" => partial
-    } = data
+    }] = data
     
     # insert the data into the correct place
     newstate = 
       Kernel.put_in(state, [:cid_map, cid], [data | state[:cid_map][cid]]) 
-      |> Kernel.put(state, :timeout, System.monotonic_time(:millisecond) + @ms_timeout)
+      |> Map.put(:timeout, System.monotonic_time(:millisecond) + @ms_timeout)
 
     if partial == false do   # if this is the last packet
-      Process.send(self(), {:complete, cid})
+      send(self(), {:complete, cid})
     end
-
     {:noreply, newstate}
   end
 
@@ -62,10 +64,18 @@ defmodule Blxx.RefHandler do
   check iif the reference data is complete, and if so send it to the database
   """
   def handle_info({:complete, cid}, state) do
-    newtime = System.monotonic_time(:millisecond) + @ms_timeout
-    Process.send_after(self(), :timeout, @ms_timeout)
-    # TODO now send that cid's data to the Blxx.Database
-    {:noreply, Map.put(state, :timeout, newtime)} 
+    # send the data to the database
+    IO.puts "Sending complete reference data to database"
+    IO.inspect(state[:cid_map][cid])
+    #GenServer.cast(Blxx.Database, {:insert, cid, state[:cid_map][cid]})
+    Blxx.Database.insert(cid, state[:cid_map][cid])
+    new_cid_map = Map.delete(state[:cid_map], cid)
+    newtime = System.monotonic_time(:millisecond) + @ms_timeout # update timer
+    newstate = %{
+      cid_map: new_cid_map, 
+      timeout: newtime
+    }
+    {:noreply, newstate}
   end
 
 
@@ -73,17 +83,31 @@ defmodule Blxx.RefHandler do
   periodically check if timer has expired, if we're still waiting for data
   """
   def handle_info(:check_timer, state) do
-    Process.send_after(self(), :check_timer, @ms_timeout) # recall later
-
+    Process.send_after(self(), :check_timer, @ms_timeout) # re schedule
+    # if cid_map is not empty, check we've received data before timeout
     if map_size(state[:cid_map]) > 0 do
       if System.monotonic_time(:millisecond) > state[:timeout] do
         # Log a warning
         IO.puts "WARNING: Reference data timeout NOTE log"
       end
     end
-
+    # we've checked already, so reset the timer
     newtime = System.monotonic_time(:millisecond) + @ms_timeout
     {:noreply, Map.put(state, :timeout, newtime)} 
+  end
+
+
+  @doc """
+  entirely clear the cid_map. DEBUG only
+  """
+
+  def clearqueue do
+    GenServer.call(__MODULE__, :clearqueue)
+  end
+
+  def handle_call(:clearqueue, _from, state) do
+    newstate = Map.put(state, :cid_map, %{})
+    {:reply, :ok, newstate}
   end
 
 end

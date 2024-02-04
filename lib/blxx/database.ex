@@ -5,7 +5,7 @@ defmodule Blxx.Database do
   @truncto 150_000
 
   def start_link(opts) do
-    GenServer.start_link(__MODULE__, %{}, name: opts[:name])
+    GenServer.start_link(__MODULE__, %{}, name: __MODULE__)
   end
 
   def init(db_state) do
@@ -13,14 +13,25 @@ defmodule Blxx.Database do
     {:ok, db_state}
   end
 
-  def handle_cast({:insert, key, value}, _from, db_state) do
+  def get() do
+    GenServer.call(__MODULE__, :get)
+  end
+
+  def insert(key, value) do
+    GenServer.cast(__MODULE__, {:insert, key, value})
+  end
+
+
+  def handle_cast({:insert, key, value}, db_state) do
     {:noreply, Map.put(db_state, key, [value | Map.get(db_state, key, [])])}
   end
+
 
   def handle_call(:get, _from, db_state) do
     {:reply, db_state, db_state}
   end
 
+  
   def handle_call({:get, key, num}, _from, db_state) do
     vals =
       db_state

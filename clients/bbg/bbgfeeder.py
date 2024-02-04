@@ -424,7 +424,8 @@ class BbgRunner():
 
     def commandErrors(self, com):
         try:
-            command, payld, cid = com
+            command, cid_l, payld = com
+            cid = tuple(cid_l)
         except:
             return ("error", "Could not parse command or payload")
         if type(command) != str:
@@ -485,7 +486,7 @@ class BbgRunner():
                     self.sendError(None, None, comerr[1])
                     continue
 
-                command, payld, cid = com
+                command, cid, payld = com
 
                 # check payload for errors 
                 if (perr := self.payldErrs(command, payld)) is not None:

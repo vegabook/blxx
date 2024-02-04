@@ -1,4 +1,4 @@
-defmodule BlxxWeb.SubHandler do
+defmodule Blxx.SubHandler do
   use GenServer
   """
 
@@ -38,13 +38,22 @@ defmodule BlxxWeb.SubHandler do
   end
 
   def init(:ok) do
+    IO.puts "Starting SubHandler"
     {:ok, %{}}
   end
 
-  def handle_cast({:insert, message}, _from, state) do
+  def handle_cast({:insert, message}, state) do
     # TODO handle
     data = Msgpax.unpack!(message)
+    case data do
+      ["info", _] -> IO.inspect(data)
+      ["status", _] -> IO.inspect(data)
+      _ -> nil
+    end
+
     {:noreply, state}
   end
 
 end
+
+
