@@ -18,6 +18,7 @@ defmodule Blxx.RefHandler do
 
   def init(:ok) do
     IO.puts "Starting RefHandler"
+    
     state = %{
       cid_map: %{}, 
       timeout: System.monotonic_time(:millisecond) + @ms_timeout
@@ -65,6 +66,8 @@ defmodule Blxx.RefHandler do
     }] = data
     
     # insert the data into the correct place
+    IO.puts "Received refdata #{inspect(data)}"
+    IO.puts "Partial is #{inspect(partial)}"
     newstate = 
       Kernel.put_in(state, [:cid_map, cid], [data | state[:cid_map][cid]]) 
       |> Map.put(:timeout, System.monotonic_time(:millisecond) + @ms_timeout)
@@ -82,9 +85,7 @@ defmodule Blxx.RefHandler do
   """
   def handle_info({:complete, cid}, state) do
     # send the data to the database
-    IO.puts "Sending complete reference data to database"
-    IO.inspect cid
-    IO.inspect(state[:cid_map][cid])
+    IO.puts "Sending complete reference data to database for cid: #{cid}"
     #GenServer.cast(Blxx.Database, {:insert, cid, state[:cid_map][cid]})
     Blxx.Database.insert(cid, state[:cid_map][cid])
     new_cid_map = Map.delete(state[:cid_map], cid)
@@ -127,5 +128,6 @@ defmodule Blxx.RefHandler do
     newstate = Map.put(state, :cid_map, %{})
     {:reply, :ok, newstate}
   end
+
 
 end

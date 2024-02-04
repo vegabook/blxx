@@ -113,41 +113,6 @@ defmodule Blxx.Com do
   end
 
 
-  # --------- reference ----------
-  @doc """
-    HistoricalDataRequest daily data request 
-  """
-  def historicalDataRequest(cid \\ Blxx.Util.random_string(),
-      securities \\ ["USDZAR Curncy", "EURUSD Curncy"],
-      fields \\ ["LAST_PRICE", "PX_BID", "PX_ASK"],
-      startDate \\ "20200101",
-      startDate \\ 
-        Date.utc_today() 
-        |> Date.add(-4) 
-        |> Date.to_string() 
-        |> String.replace("-", ""),
-      endDate \\ 
-        Date.utc_today() 
-        |> Date.to_string() 
-        |> String.replace("-", "")
-    ) do
-    IO.puts GenServer.call(Blxx.RefHandler, {:incoming, cid}) # tell refhandler to expect data
-    com(
-      {:blp,
-       [
-         "HistoricalDataRequest",
-          cid,
-         %{
-           "securities" => securities,
-           "fields" => fields,
-           "startDate" => startDate,
-           "endDate" => endDate
-         },
-       ]}
-    )
-  end
-
-
   def intradayTickRequest(cid \\ Blxx.Util.random_string(),
       security \\ "USDZAR Curncy", 
       startDateTime \\ DateTime.new!(~D[2023-10-23], ~T[10:00:00]),
@@ -168,45 +133,6 @@ defmodule Blxx.Com do
          }
        ]}
     )
-  end
-
-
-  def intradayBarRequest() do
-    intradayBarRequest("XBTUSD Curncy", 
-      DateTime.new!(~D[2023-10-23], ~T[10:00:00]), 
-      DateTime.new!(~D[2023-10-23], ~T[10:10:00]), 
-      1
-    )
-  end
-
-  def intradayBarRequest(security, startDateTime, endDateTime, interval) do
-    cid = ["intradayBarRequest", 
-      security, 
-      startDateTime |> DateTime.to_string, 
-      endDateTime |> DateTime.to_string,
-      interval
-    ] 
-    # tell refhandler to expect data
-    IO.puts GenServer.call(Blxx.RefHandler, {:incoming, cid})
-    with {:i60, true} <- {:i60, interval >= 1 and interval <= 1440} do
-      com(
-        {:blp,
-         [
-           "IntradayBarRequest",
-           cid,
-           %{
-             "security" => security,
-             "startDateTime" => startDateTime,
-             "endDateTime" => endDateTime,
-             "interval" => interval,
-             "gapFillInitialBar" => true
-           }
-         ]}
-      )
-    else
-      {:i60, false} -> {:error, "interval must be greater than 60 and less than 1440"}
-    end
-      
   end
 
 
@@ -246,6 +172,79 @@ defmodule Blxx.Com do
        ]}
     )
   end
+
+
+  # --------- reference ----------
+  @doc """
+    HistoricalDataRequest daily data request 
+  """
+  def historicalDataRequest(
+      securities \\ ["USDZAR Curncy", "EURUSD Curncy"],
+      fields \\ ["LAST_PRICE", "PX_BID", "PX_ASK"],
+      startDate \\ 
+        Date.utc_today() 
+        |> Date.add(-4)
+        |> Date.to_string() 
+        |> String.replace("-", ""),
+      endDate \\ 
+        Date.utc_today() 
+        |> Date.to_string() 
+        |> String.replace("-", "")
+    ) do
+    cid = ["historicalDataRequest", securities, fields, startDate, endDate]
+    com(
+      {:blp,
+       [
+         "HistoricalDataRequest",
+          cid,
+         %{
+           "securities" => securities,
+           "fields" => fields,
+           "startDate" => startDate,
+           "endDate" => endDate
+         },
+       ]}
+    )
+  end
+
+
+  def intradayBarRequest() do
+    intradayBarRequest("XBTUSD Curncy", 
+      DateTime.new!(~D[2023-10-23], ~T[10:00:00]), 
+      DateTime.new!(~D[2023-10-23], ~T[10:10:00]), 
+      1
+    )
+  end
+
+  def intradayBarRequest(security, startDateTime, endDateTime, interval) do
+    cid = ["intradayBarRequest", 
+      security, 
+      startDateTime |> DateTime.to_string, 
+      endDateTime |> DateTime.to_string,
+      interval
+    ] 
+    with {:i60, true} <- {:i60, interval >= 1 and interval <= 1440} do
+      com(
+        {:blp,
+         [
+           "IntradayBarRequest",
+           cid,
+           %{
+             "security" => security,
+             "startDateTime" => startDateTime,
+             "endDateTime" => endDateTime,
+             "interval" => interval,
+             "gapFillInitialBar" => true
+           }
+         ]}
+      )
+    else
+      {:i60, false} -> {:error, "interval must be greater than 60 and less than 1440"}
+    end
+      
+  end
+
+
 
 
 end

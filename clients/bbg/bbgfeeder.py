@@ -59,6 +59,7 @@ RESP_BAR = "bardata"
 RESP_STATUS = "status"
 RESP_ERROR = "error"
 RESP_ACK = "ack"
+RESP_PING = "ping"
 
 # ------------- create default constants ------------
 
@@ -625,7 +626,12 @@ async def data_forwarder(pool):
                 if tag != "bardata":
                     print(f"{tag =} {len(datpacked)=}")
                 # Add message header to communicate if it's a large reference response
-                headerpacked = headerpack(datpacked, 1 if tag == RESP_REF or tag == RESP_ACK else 0)
+                if tag == RESP_PING:
+                    headerpacked = headerpack(datpacked, 0)
+                if tag == RESP_REF or tag == RESP_ACK:
+                    headerpacked = headerpack(datpacked, 1)
+                else:
+                    headerpacked = headerpack(datpacked, 2)
                 await ws_send(headerpacked, retry_connect = False) # retry_connect handled by ping
 
 
@@ -716,7 +722,7 @@ async def main():
             try:
                 while True:
                     await asyncio.sleep(3) # ping every x seconds
-                    sendmsg = ("ping", dt.datetime.now(dt.timezone.utc).timestamp())
+                    sendmsg = (RESP_PING, dt.datetime.now(dt.timezone.utc).timestamp())
                     pingpacked = await msgpacker(sendmsg, pool)
                     if pingpacked is not None:
                         send_success = await ws_send(headerpack(pingpacked, 0), retry_connect = True)

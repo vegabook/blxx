@@ -3,13 +3,21 @@ defmodule Blxx.Database do
 
   @regulator :timer.seconds(10)
   @truncto 150_000
+  # TODO remove all insert into the state variable and use ets instead
 
   def start_link(opts) do
     GenServer.start_link(__MODULE__, %{}, name: __MODULE__)
   end
 
   def init(db_state) do
-    Process.send_after(self(), :regulate, @regulator)
+    Process.send_after(self(), :regulate, @regulator) # start the state regulator
+    :ets.new(:blp, [
+      :set,
+      :public,
+      :named_table,
+      {:read_concurrency, true},
+      {:write_concurrency, true}
+    ])
     {:ok, db_state}
   end
 
@@ -18,11 +26,13 @@ defmodule Blxx.Database do
   end
 
   def insert(key, value) do
+    # TODO make key much simpler than the whole cid so that ordered set works
     GenServer.cast(__MODULE__, {:insert, key, value})
   end
 
 
   def handle_cast({:insert, key, value}, db_state) do
+    :ets.insert(:blp, {key, value})
     {:noreply, Map.put(db_state, key, [value | Map.get(db_state, key, [])])}
   end
 
@@ -50,5 +60,10 @@ defmodule Blxx.Database do
     trunc_state = for {key, val} <- db_state, into: %{}, do: {key, Enum.take(val, @truncto)}
     Process.send_after(self(), :regulate, @regulator)
     {:noreply, trunc_state}
+  end
+
+  def handle_call(:stop, _from, db_state) do
+    IO.puts("Stopping Blxx.Database")
+    {:stop, :normal, db_state}
   end
 end

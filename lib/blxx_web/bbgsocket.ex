@@ -1,5 +1,7 @@
 defmodule BlxxWeb.BbgSocket do
   @behaviour Phoenix.Socket.Transport
+
+  @resp_ping 0
   @resp_ref 1
   @moduledoc """
   This module implements the Phoenix.Socket.Transport behaviour for a websocket
@@ -45,14 +47,17 @@ defmodule BlxxWeb.BbgSocket do
     <<header::binary-size(8), message::binary>> = data
     <<msgtype::little-integer-size(64)>> = header
 
-    if msgtype == @resp_ref do
-      # TODO make these calls so as not to block the refhandler
-      GenServer.call(Blxx.RefHandler, {:received, message})
-    else
-      # TODO make these calls so as not to block the subhandler
-      GenServer.cast(Blxx.SubHandler, {:received, message})
+    case msgtype do
+      @resp_ping -> 
+        ["ping", send_time] = Msgpax.unpack!(message)
+        stamp = DateTime.utc_now() |> DateTime.to_unix(:microsecond) |> (&(&1 / 1000000)).()
+        Blxx.Com.com({:blp, [:pong, send_time, stamp]})
+      @resp_ref -> 
+        GenServer.call(Blxx.RefHandler, {:received, message})
+        Logger.info "Received refdata"
+      _ -> 
+        GenServer.cast(Blxx.SubHandler, {:received, message})
     end
-
   end
 
   @doc """
