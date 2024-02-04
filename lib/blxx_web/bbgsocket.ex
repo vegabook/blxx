@@ -47,7 +47,7 @@ defmodule BlxxWeb.BbgSocket do
 
     if msgtype == @resp_ref do
       # TODO make these calls so as not to block the refhandler
-      GenServer.cast(Blxx.RefHandler, {:received, message})
+      GenServer.call(Blxx.RefHandler, {:received, message})
     else
       # TODO make these calls so as not to block the subhandler
       GenServer.cast(Blxx.SubHandler, {:received, message})

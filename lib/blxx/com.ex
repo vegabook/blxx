@@ -231,10 +231,8 @@ defmodule Blxx.Com do
       fields,
       overrides |> Enum.map(fn m -> Enum.map(m, fn {x, y} -> x <> ":" <> y end) end)
     ]
-    IO.inspect cid
-    # TODO this should only happen once the command is acknowledged via the {:com, command} 
-    # handler in Blxx.BbgSocket
-    IO.puts GenServer.call(Blxx.RefHandler, {:incoming, cid}) # tell refhandler to expect data
+    # send out the request. If acknowledged, python side will send an 
+    # ack and this will start the process of waiting for data messages in Blxx.RefHandler
     com(
       {:blp,
        [

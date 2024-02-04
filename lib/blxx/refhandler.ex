@@ -10,6 +10,8 @@ defmodule Blxx.RefHandler do
 
   use GenServer
 
+  require Logger
+
   def start_link(_opts) do
     GenServer.start_link(__MODULE__, :ok, name: __MODULE__)
   end
@@ -25,22 +27,37 @@ defmodule Blxx.RefHandler do
   end
 
 
-  @doc """ 
-  prepare data structures for a new incoming request. 
+  @doc """
+  unpack data, then check if message is an ack or actual data, 
+  and handle accordingly
   """
-  def handle_call({:incoming, cid}, _from, state) do
-    IO.puts "Preparing incoming reference data #{cid}"
-    newstate = Kernel.put_in(state, [:cid_map, cid], [])
-    {:reply, :ok, newstate}
+  def handle_call({:received, message}, _from, state) do
+    data = Msgpax.unpack!(message) # TODO spawn here? If yes then how to handle out-of-order for partial=false
+    case Enum.at(data, 0) do
+      "refdata" -> 
+        GenServer.cast(__MODULE__, {:refdata, data})
+      "ack" -> 
+        GenServer.cast(__MODULE__, {:ack, data})
+    end
+    {:reply, :ok, state}
   end
 
 
+  @doc """ 
+  prepare data structures for a new incoming request. 
+  """
+  def handle_cast({:ack, data}, state) do
+    ["ack", %{"cid" => cid}] = data
+    Logger.info "Received ack for cid: #{cid}"
+    newstate = Kernel.put_in(state, [:cid_map, cid], [])
+    {:noreply, newstate}
+  end
+
+  
   @doc """
   insert data into the cid_map, advance timer
   """
-  def handle_cast({:received, message}, state) do
-    data = Msgpax.unpack!(message) # TODO spawn here? If yes then how to handle out-of-order for partial=false
-
+  def handle_cast({:refdata, data}, state) do
     ["refdata", %{
       "cid" => cid,
       "data" => data, 
@@ -66,6 +83,7 @@ defmodule Blxx.RefHandler do
   def handle_info({:complete, cid}, state) do
     # send the data to the database
     IO.puts "Sending complete reference data to database"
+    IO.inspect cid
     IO.inspect(state[:cid_map][cid])
     #GenServer.cast(Blxx.Database, {:insert, cid, state[:cid_map][cid]})
     Blxx.Database.insert(cid, state[:cid_map][cid])

@@ -58,6 +58,7 @@ RESP_SUB = "subdata"
 RESP_BAR = "bardata"
 RESP_STATUS = "status"
 RESP_ERROR = "error"
+RESP_ACK = "ack"
 
 # ------------- create default constants ------------
 
@@ -414,6 +415,10 @@ class BbgRunner():
         sendmsg = (RESP_INFO, {"request_type": command, "structure": strdesc})
         dataq.put(sendmsg)
 
+    def sendAck(self, cid):
+        sendmsg = (RESP_ACK, {"cid": cid})
+        dataq.put(sendmsg)
+
 
     def sendError(self, command, payld, errmsg, errdetail = None):
         sendmsg = (RESP_ERROR, {"command": command,
@@ -542,6 +547,7 @@ class BbgRunner():
                 # ---------------- request/response ----------------
 
                 elif command in self.refservices["services"]:
+                    self.sendAck(cid)
                     rservice = self.refservices["session"] \
                             .getService(self.refservices["services"][command])
                     rrequest = rservice.createRequest(command)
@@ -619,7 +625,7 @@ async def data_forwarder(pool):
                 if tag != "bardata":
                     print(f"{tag =} {len(datpacked)=}")
                 # Add message header to communicate if it's a large reference response
-                headerpacked = headerpack(datpacked, 1 if tag == RESP_REF else 0)
+                headerpacked = headerpack(datpacked, 1 if tag == RESP_REF or tag == RESP_ACK else 0)
                 await ws_send(headerpacked, retry_connect = False) # retry_connect handled by ping
 
 
