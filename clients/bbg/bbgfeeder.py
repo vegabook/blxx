@@ -673,8 +673,8 @@ async def ws_send(msg, retry_connect = False):
     try to reconnect
     """
     buffdeque.appendleft(msg) 
-    # TODO NB refactor with if websocket.open (returns boolean)
     while len(buffdeque) > 0:
+        print(f"{buffdeque=}")
         if not websocket.open:
             if retry_connect:
                 await connected(URLMASK, 20, 3)

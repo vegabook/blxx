@@ -42,7 +42,7 @@ defmodule Blxx.Com do
 
   def sockpid() do
     Registry.lookup(Blxx.Registry, :bbgsocket_pid)
-    |> List.first()
+    |> List.first
     |> elem(1)
   end
 
