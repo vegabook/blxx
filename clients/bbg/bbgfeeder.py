@@ -777,6 +777,7 @@ if __name__ == "__main__":
                 sendmsg = (RESP_PING, dt.datetime.now(dt.timezone.utc).timestamp())
                 packed = msgpack.packb(sendmsg)
                 headerpacked = headerpack(packed, 0)
+                print(f"{headerpacked=}")
                 websocket.send(headerpacked)
                 msg = websocket.recv()
                 print(msg)
