@@ -12,7 +12,7 @@ async def ping_forever():
             end_time = time.time()  # Record the time after receiving "pong"
             
             rtt = end_time - start_time
-            print(f"Round-Trip Time: {rtt:.3f} seconds")
+            print(f"Round-Trip Time: {rtt:.4f} seconds")
             
             # Wait a bit before sending the next ping to avoid overwhelming the server
             await asyncio.sleep(1)
