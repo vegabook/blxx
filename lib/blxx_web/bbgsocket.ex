@@ -51,7 +51,6 @@ defmodule BlxxWeb.BbgSocket do
       @resp_ping -> 
         ["ping", send_time] = Msgpax.unpack!(message)
         stamp = DateTime.utc_now() |> DateTime.to_unix(:microsecond) |> (&(&1 / 1000000)).()
-        IO.puts "sending pong"
         Blxx.Com.com({:blp, [:pong, send_time, stamp]})
       @resp_ref -> 
         GenServer.call(Blxx.RefHandler, {:received, message})
