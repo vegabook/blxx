@@ -4,7 +4,7 @@ import ssl
 import time
 
 async def ping_forever():
-    uri = "wss://crvm.io"
+    uri = "wss://suprabonds.com"
     # open text file for writing
     with open("ping_times.txt", "w", buffering = 1) as file: # line level buffering
         async with websockets.connect(uri = uri) as websocket:
