@@ -766,6 +766,7 @@ if __name__ == "__main__":
         connected = False
         while not connected:
             websocket = create_connection(url)
+            breakpoint()
             if websocket.open:
                 connected = True
                 print("Connected")
