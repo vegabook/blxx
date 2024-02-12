@@ -778,6 +778,8 @@ if __name__ == "__main__":
                 packed = msgpack.packb(sendmsg)
                 headerpacked = headerpack(packed, 0)
                 websocket.send(headerpacked)
+                msg = websocket.recv()
+                print(msg)
                 time.sleep(3)
             except KeyboardInterrupt:
                 websocket.close()
