@@ -3,7 +3,7 @@ import websockets
 import time
 
 async def ping_forever():
-    uri = "ws://suprabonds.com:4002"
+    uri = "ws://80.64.218.175:8080"
     async with websockets.connect(uri) as websocket:
         while True:
             start_time = time.time()  # Record the time before sending "ping"
