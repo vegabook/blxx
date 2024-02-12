@@ -10,10 +10,10 @@ async def ping_forever():
     with open("ping_times.txt", "w", buffering = 1) as file: # line level buffering
         async with websockets.connect(uri = uri) as websocket:
             while True:
-                start_time = time.time()  # Record the time before sending "ping"
+                start_time = time.perf_counter()  # Record the time before sending "ping"
                 await websocket.send("ping")
                 await websocket.recv()
-                end_time = time.time()  # Record the time after receiving "pong"
+                end_time = time.perf_counter()  # Record the time after receiving "pong"
 
                 rtt = end_time - start_time
                 str1 = f"{dt.datetime.utcnow()} Round-Trip Time: {rtt:.5f} seconds"
