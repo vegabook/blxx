@@ -6,7 +6,7 @@ import time
 async def ping_forever():
     uri = "wss://crvm.io"
     # open text file for writing
-    with open("ping_times.txt", "w") as file:
+    with open("ping_times.txt", "w", buffering = 1) as file: # line level buffering
         async with websockets.connect(uri = uri) as websocket:
             while True:
                 start_time = time.time()  # Record the time before sending "ping"
