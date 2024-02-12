@@ -99,6 +99,12 @@ def parseCmdLine():
         help=("Show public key in numeric format for auth. "
               "Must be put in BLXXKEY env variable on server"),
         default=False)
+    parser.add_argument(
+        "--simple_ping",
+        action="store_true",
+        help=("Only ping the server for connection testing." 
+              "Barebones without any async or bloomberg functionality."),
+        default=False)
     options = parser.parse_args()
     options.options.append(f"interval={DEFAULT_INTERVAL}")
     return options
@@ -750,7 +756,24 @@ if __name__ == "__main__":
     if options.showkey:
         print(getKey(private = False, 
                      keypath = options.keypath).public_numbers().n)
+    elif options.simple_ping:
+        id = os.getlogin().replace(" ", "_")
+        key = getKey(private = False,
+                     keypath = options.keypath).public_numbers().n
+        url = urlmask.format(id, key)
+        websocket = wsconnect(url)
+        while True:
+            try:
+                sendmsg = (RESP_PING, dt.datetime.now(dt.timezone.utc).timestamp())
+                packed = msgpack.packb(sendmsg)
+                headerpacked = headerpack(packed, 0)
+                websocket.send(headerpacked)
+                time.sleep(3)
+            except KeyboardInterrupt:
+                websocket.close()
+                break
     else:
         asyncio.run(main())
+
     
 
