@@ -762,7 +762,15 @@ if __name__ == "__main__":
                      keypath = options.keypath).public_numbers().n
         urlmask = URLMASK
         url = urlmask.format(id, key)
-        websocket = wsconnect(url)
+        connected = False
+        while not connected:
+            websocket = wsconnect(url)
+            if websocket.open:
+                connected = True
+                print("Connected")
+            else:
+                print("Failed to connect")
+                time.sleep(1)
         while True:
             try:
                 sendmsg = (RESP_PING, dt.datetime.now(dt.timezone.utc).timestamp())
