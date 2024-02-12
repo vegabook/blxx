@@ -760,6 +760,7 @@ if __name__ == "__main__":
         id = os.getlogin().replace(" ", "_")
         key = getKey(private = False,
                      keypath = options.keypath).public_numbers().n
+        urlmask = URLMASK
         url = urlmask.format(id, key)
         websocket = wsconnect(url)
         while True:
