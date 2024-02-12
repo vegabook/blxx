@@ -2,6 +2,7 @@ import asyncio
 import websockets
 import ssl
 import time
+import datetime as dt
 
 async def ping_forever():
     uri = "wss://suprabonds.com"
@@ -15,7 +16,7 @@ async def ping_forever():
                 end_time = time.time()  # Record the time after receiving "pong"
 
                 rtt = end_time - start_time
-                str1 = f"Round-Trip Time: {rtt:.4f} seconds"
+                str1 = f"{dt.datetime.utcnow()} Round-Trip Time: {rtt:.4f} seconds"
                 print(str1)
                 file.write(str1 + "\n")
 
