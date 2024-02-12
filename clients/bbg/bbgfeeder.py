@@ -8,6 +8,7 @@ import msgpack
 from queue import Queue, Empty
 import asyncio
 from websockets.client import connect as wsconnect
+from websocket import create_connection
 from argparse import ArgumentParser, RawTextHelpFormatter
 import blpapi
 import logging
@@ -764,7 +765,7 @@ if __name__ == "__main__":
         url = urlmask.format(id, key)
         connected = False
         while not connected:
-            websocket = wsconnect(url)
+            websocket = create_connection(url)
             if websocket.open:
                 connected = True
                 print("Connected")
