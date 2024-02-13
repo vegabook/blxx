@@ -3,11 +3,19 @@ import websockets
 import ssl
 import time
 import datetime as dt
+import argparse
+
+parser = argparse.ArgumentParser(description="Ping client")
+parser.add_argument("--uri", type=str, default="ws://localhost:7008")
+parser.add_argument("output_file", type=str, default="ping_times.txt")
+args = parser.parse_args()
+uri = string(args.uri)
+output_file = string(args.output_file)
+
 
 async def ping_forever():
-    uri = "ws://80.64.218.175:7008"
     # open text file for writing
-    with open("ping_times_direct_logicLHR_from_Win11.txt", "w", buffering = 1) as file: # line level buffering
+    with open(output_file, "w", buffering = 1) as file: # line level buffering
         async with websockets.connect(uri = uri) as websocket:
             while True:
                 start_time = time.perf_counter()  # Record the time before sending "ping"
