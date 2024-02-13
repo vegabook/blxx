@@ -5,7 +5,7 @@ import time
 import datetime as dt
 
 async def ping_forever():
-    uri = "wss://suprabonds.com:7008"
+    uri = "ws://suprabonds.com:7008"
     # open text file for writing
     with open("ping_times_autossh.txt", "w", buffering = 1) as file: # line level buffering
         async with websockets.connect(uri = uri) as websocket:
