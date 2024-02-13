@@ -9,8 +9,8 @@ parser = argparse.ArgumentParser(description="Ping client")
 parser.add_argument("--uri", type=str, default="ws://localhost:7008")
 parser.add_argument("--output_file", type=str, default="ping_times.txt")
 args = parser.parse_args()
-uri = string(args.uri)
-output_file = string(args.output_file)
+uri = str(args.uri)
+output_file = str(args.output_file)
 
 
 async def ping_forever():
