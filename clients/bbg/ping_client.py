@@ -7,7 +7,7 @@ import argparse
 
 parser = argparse.ArgumentParser(description="Ping client")
 parser.add_argument("--uri", type=str, default="ws://localhost:7008")
-parser.add_argument("output_file", type=str, default="ping_times.txt")
+parser.add_argument("--output_file", type=str, default="ping_times.txt")
 args = parser.parse_args()
 uri = string(args.uri)
 output_file = string(args.output_file)
