@@ -4,6 +4,9 @@ import ssl
 import time
 import datetime as dt
 import argparse
+from sockauth import getKey
+
+URLMASK = "wss://suprabonds.com/bbgws/{}/{}/websocket"
 
 parser = argparse.ArgumentParser(description="Ping client")
 parser.add_argument("--uri", type=str, default="ws://localhost:7008")
@@ -11,6 +14,7 @@ parser.add_argument("--output_file", type=str, default="ping_times.txt")
 # interger milliseconds
 parser.add_argument("--milliseconds", type=int, default=1000)
 parser.add_argument("--sample_hours", type=float, default=12)
+parser.add_argument("--blxx", action="store_true", default=False)
 args = parser.parse_args()
 uri = str(args.uri)
 milliseconds = int(args.milliseconds)
@@ -21,6 +25,13 @@ async def ping_forever():
     # open text file for writing
     finish_time = dt.datetime.now() + dt.timedelta(hours = sample_hours)
     ping_times = []
+    # if we are connecting to the elixir blxx server as opposed to pong_server then
+    # we need to get a key and also an id
+    if args.blxx:
+        key = getKey(private = False,
+                     keypath = None).public_numbers().n
+        uri = URLMASK.format("blxx", key)
+    print(f"Connecting to {uri}")
     async with websockets.connect(uri = uri) as websocket:
         while True:
             start_time = time.perf_counter()  # Record the time before sending "ping"

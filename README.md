@@ -25,6 +25,7 @@ The client is a Windows computer running a licenced Bloomberg terminal or BPIPE.
 
 #### Keys
 Run `bbgfeeder.py --showkey` on the Windows client running BLoomberg Terminal / BPIPE, ensuring that environment variable `BLXXKEY` on the server contains this value. This is used for basic authentication. The fully qualified public key path can be manually specified with the `keypath` command line argument. 
+If you wish to authorise more than one key, they should be separated by a colon `:` in the BLXXKEY environment variable. 
 
 
 ### Implementation
