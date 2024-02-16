@@ -719,7 +719,7 @@ async def main():
             try:
                 while True:
                     await asyncio.sleep(3) # ping every x seconds
-                    success = await ws_send("ping")
+                    success = await ws_send("ping", retry_connect = True)
                     if success:
                         retry_ping_count = 0
                     else:
