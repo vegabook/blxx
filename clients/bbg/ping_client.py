@@ -40,7 +40,7 @@ async def ping_forever():
             end_time = time.perf_counter()  # Record the time after receiving "pong"
 
             rtt = end_time - start_time
-            str1 = f"{dt.datetime.utcnow()} Round-Trip Time: {rtt:.5f} seconds"
+            str1 = f"{dt.datetime.utcnow()} Round-Trip Time: {rtt:.5f} seconds, connection is {websocket.open}"
             print(str1)
             ping_times.append(str1)
 
