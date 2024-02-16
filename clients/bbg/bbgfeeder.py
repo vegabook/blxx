@@ -1,31 +1,3 @@
-# bloomberg data feeder for elixir 
-
-import time
-import datetime as dt
-import threading
-from concurrent.futures import ProcessPoolExecutor
-import msgpack
-from queue import Queue, Empty
-import asyncio
-from websockets.client import connect as wsconnect
-from websocket import create_connection
-from argparse import ArgumentParser, RawTextHelpFormatter
-import blpapi
-import logging
-import socket
-import os
-from sockauth import getKey
-from collections import deque
-import struct
-
-from util.SubscriptionOptions import \
-    addSubscriptionOptions, \
-    setSubscriptionSessionOptions
-from util.ConnectionAndAuthOptions import \
-    addConnectionAndAuthOptions, \
-    createSessionOptions
-from concurrent.futures import TimeoutError as ConnectionTimeoutError
-
 from colorama import Fore, Back, Style, init as colorinit; colorinit(autoreset=True)
 
 
@@ -59,8 +31,7 @@ RESP_SUB = "subdata"
 RESP_BAR = "bardata"
 RESP_STATUS = "status"
 RESP_ERROR = "error"
-RESP_ACK = "ack"
-RESP_PING = "ping"
+RESP_ACK = 'ack"
 
 # ------------- create default constants ------------
 
@@ -99,12 +70,6 @@ def parseCmdLine():
         action="store_true",
         help=("Show public key in numeric format for auth. "
               "Must be put in BLXXKEY env variable on server"),
-        default=False)
-    parser.add_argument(
-        "--simple_ping",
-        action="store_true",
-        help=("Only ping the server for connection testing." 
-              "Barebones without any async or bloomberg functionality."),
         default=False)
     options = parser.parse_args()
     options.options.append(f"interval={DEFAULT_INTERVAL}")
@@ -630,11 +595,7 @@ async def data_forwarder(pool):
             # potentially expensive msgpack operation in process pool
             datpacked = await msgpacker(dat, pool)
             if datpacked is not None:
-                if tag != "bardata":
-                    print(f"{tag =} {len(datpacked)=}")
                 # Add message header to communicate if it's a large reference response
-                if tag == RESP_PING:
-                    headerpacked = headerpack(datpacked, 0)
                 if tag == RESP_REF or tag == RESP_ACK:
                     headerpacked = headerpack(datpacked, 1)
                 else:
@@ -726,18 +687,19 @@ async def main():
             bbgthread = threading.Thread(target=bbgrunner.comloop, args=(), daemon=True)
             bbgthread.start()
             # ping loop
+            retry_ping_count = 0
             try:
                 while True:
                     await asyncio.sleep(3) # ping every x seconds
-                    sendmsg = (RESP_PING, dt.datetime.now(dt.timezone.utc).timestamp())
-                    pingpacked = await msgpacker(sendmsg, pool)
-                    if pingpacked is not None:
-                        send_success = await ws_send(headerpack(pingpacked, 0), retry_connect = True)
-                        if not send_success:
-                            logger.error("Ping send failed, retrying")
-                            break
+                    success = await ws_send("ping")
+                    if success:
+                        retry_ping_count = 0
                     else:
-                        logger.error("Ping msgpack failed")
+                        logger.error(f"Ping send failed with error {e}; retry count {retry_ping_count}")
+                        retry_ping_count += 1
+                        if retry_ping_count > 20:
+                            logger.error("Too many ping failures")
+                            break
                     if not bbgthread.is_alive():
                         logger.error("Bloomberg thread died")
                         break
@@ -757,34 +719,6 @@ if __name__ == "__main__":
     if options.showkey:
         print(getKey(private = False, 
                      keypath = options.keypath).public_numbers().n)
-    elif options.simple_ping:
-        id = os.getlogin().replace(" ", "_")
-        key = getKey(private = False,
-                     keypath = options.keypath).public_numbers().n
-        urlmask = URLMASK
-        url = urlmask.format(id, key)
-        connected = False
-        while not connected:
-            websocket = create_connection(url)
-            if websocket.connected:
-                connected = True
-                print("Connected simple_ping")
-            else:
-                print("Failed to connect")
-                time.sleep(1)
-        while True:
-            try:
-                sendmsg = (RESP_PING, dt.datetime.now(dt.timezone.utc).timestamp())
-                packed = msgpack.packb(sendmsg)
-                headerpacked = headerpack(packed, 0)
-                print(f"{headerpacked=}")
-                websocket.send(headerpacked)
-                msg = websocket.recv()
-                print(msg)
-                time.sleep(3)
-            except KeyboardInterrupt:
-                websocket.close()
-                break
     else:
         asyncio.run(main())
 
