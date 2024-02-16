@@ -60,6 +60,8 @@ defmodule BlxxWeb.BbgSocket do
   end
 
   def handle_in({"ping", _}, state) do
+    # print the time 
+    IO.puts("Ping received at #{inspect(DateTime.utc_now())}")
     {:push, {:binary, Msgpax.pack!(["pong", []])}, state}
   end
 

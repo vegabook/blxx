@@ -723,7 +723,7 @@ async def main():
                     if success:
                         retry_ping_count = 0
                     else:
-                        logger.error(f"Ping send failed with error {e}; retry count {retry_ping_count}")
+                        logger.error(f"Ping failed. Retry count {retry_ping_count}")
                         retry_ping_count += 1
                         if retry_ping_count > 20:
                             logger.error("Too many ping failures")
