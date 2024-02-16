@@ -31,7 +31,7 @@ RESP_SUB = "subdata"
 RESP_BAR = "bardata"
 RESP_STATUS = "status"
 RESP_ERROR = "error"
-RESP_ACK = 'ack"
+RESP_ACK = "ack"
 
 # ------------- create default constants ------------
 
