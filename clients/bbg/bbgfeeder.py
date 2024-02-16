@@ -1,3 +1,31 @@
+# bloomberg data feeder for elixir 
+
+import time
+import datetime as dt
+import threading
+from concurrent.futures import ProcessPoolExecutor
+import msgpack
+from queue import Queue, Empty
+import asyncio
+from websockets.client import connect as wsconnect
+from websocket import create_connection
+from argparse import ArgumentParser, RawTextHelpFormatter
+import blpapi
+import logging
+import socket
+import os
+from sockauth import getKey
+from collections import deque
+import struct
+
+from util.SubscriptionOptions import \
+    addSubscriptionOptions, \
+    setSubscriptionSessionOptions
+from util.ConnectionAndAuthOptions import \
+    addConnectionAndAuthOptions, \
+    createSessionOptions
+from concurrent.futures import TimeoutError as ConnectionTimeoutError
+
 from colorama import Fore, Back, Style, init as colorinit; colorinit(autoreset=True)
 
 
