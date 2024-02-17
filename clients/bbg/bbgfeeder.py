@@ -85,7 +85,7 @@ def intercept_await(coro, given_name):
         result = await coro(*args, **kwargs)
 
         # Perform actions after the original await
-        print("After await {given_name} {dt.datetime.now()}")
+        print(f"After await {given_name} {dt.datetime.now()}")
         return result
     return wrapper
 
