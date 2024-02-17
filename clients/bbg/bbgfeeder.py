@@ -690,7 +690,10 @@ def task_count():
     """ 
     count the number of tasks in the event loop for debugging purposes
     """
-    return len([t for t in asyncio.all_tasks() if not t.done()])
+    tasks = [t for t in asyncio.all_tasks() if not t.done()]
+    breakpoint()
+
+
 
 
 async def main():
