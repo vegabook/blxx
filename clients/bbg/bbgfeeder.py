@@ -733,12 +733,11 @@ async def main():
             except Exception as e:
                 logger.error(f"ping loop error {e}")
                 break
-            finally: 
-                stopevent.set()
-                await websocket.close()
-                await comtask
-                await datatask
-                bbgthread.join()
+            stopevent.set()
+            await websocket.close()
+            await comtask
+            await datatask
+            bbgthread.join()
         await asyncio.sleep(1)
 
 
