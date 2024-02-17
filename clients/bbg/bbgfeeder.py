@@ -89,6 +89,9 @@ def intercept_await(coro, given_name):
         return result
     return wrapper
 
+# can be used to wrap any async function to see when it's awaited
+# if not await wrapped_ws_send("ping", retry_connect = True):
+
 # ------------ parse the command line ---------------
 
 def parseCmdLine():
@@ -648,7 +651,6 @@ async def data_forwarder(pool):
                     headerpacked = headerpack(datpacked, 2)
                 await ws_send(headerpacked, retry_connect = False) # retry_connect handled by ping
 
-wrapped_wsconnect = intercept_await(wsconnect, "wsconnect") # DEBUG
 
 async def connected(urlmask = URLMASK, reconnection_count = 3, wait_time = 1):
     """ authenticate with server side websocket
@@ -666,7 +668,7 @@ async def connected(urlmask = URLMASK, reconnection_count = 3, wait_time = 1):
     connection_count = reconnection_count
     while True:
         try:
-            websocket = await asyncio.wait_for(wrapped_wsconnect(url), 1) # timeout 1 second
+            websocket = await asyncio.wait_for(wsconnect(url), 1) # timeout 1 second
             logger.info(f"Connected")
             return True
         except asyncio.TimeoutError:
@@ -680,7 +682,6 @@ async def connected(urlmask = URLMASK, reconnection_count = 3, wait_time = 1):
         if connection_count == 0:
             return False
 
-wrapped_connected = intercept_await(connected, "connected") # DEBUG
 
 async def ws_send(msg, retry_connect = False):
     """
@@ -692,8 +693,7 @@ async def ws_send(msg, retry_connect = False):
         if not websocket.open:
             logger.warning("Websocket not open")
             if retry_connect:
-                #await connected(URLMASK, 20, 3)
-                await wrapped_connected(URLMASK, 20, 3) # DEBUG
+                await connected(URLMASK, 20, 3)
             else:
                 success = False
                 break
@@ -706,7 +706,6 @@ async def ws_send(msg, retry_connect = False):
             success = False
     return success
 
-wrapped_ws_send = intercept_await(ws_send, "ws_send") # DEBUG
 
 async def main():
     """
@@ -739,8 +738,7 @@ async def main():
             try:
                 while True:
                     await asyncio.sleep(3) # ping every x seconds
-                    #if not await ws_send("ping", retry_connect = True): # DEBUG 
-                    if not await wrapped_ws_send("ping", retry_connect = True):
+                    if not await ws_send("ping", retry_connect = True): # 
                         logger.error("ping failed")
                         break
                     if not bbgthread.is_alive():
