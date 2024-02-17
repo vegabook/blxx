@@ -696,6 +696,17 @@ def task_count():
     return len(tasks), len(tasks_done), names
 
 
+async def task_len_tracker():
+    """ 
+    track the number of tasks in the event loop for debugging purposes
+    """
+    while not stopevent.is_set():
+        print(f"tc: {task_count()[0]}  ")
+        await asyncio.sleep(0.1)
+
+
+
+
 
 
 async def main():
@@ -722,6 +733,7 @@ async def main():
             # when success on getting a websocket, now create all the tasks
             comtask = asyncio.create_task(com_dispatcher())
             datatask = asyncio.create_task(data_forwarder(pool))
+            count_task = asyncio.create_task(task_len_tracker())
             bbgrunner = BbgRunner()
             bbgthread = threading.Thread(target=bbgrunner.comloop, args=(), daemon=True)
             bbgthread.start()
@@ -744,6 +756,7 @@ async def main():
                 await websocket.close()
                 await comtask
                 await datatask
+                await count_task
                 bbgthread.join()
         await asyncio.sleep(1)
 
