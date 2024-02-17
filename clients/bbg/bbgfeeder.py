@@ -71,6 +71,24 @@ DEFAULT_TOPIC = [] # put a ticker in here if you always want to receive it
 DEFAULT_FIELDS = ["LAST_PRICE", "BID", "ASK"]
 URLMASK = "wss://suprabonds.com/bbgws/{}/{}/websocket"
 
+# ------------- debugging tools ---------------------
+import functools
+
+def intercept_await(coro, given_name):
+    """Wrap a coroutine to intercept its await calls."""
+    @functools.wraps(coro)
+    async def wrapper(*args, **kwargs):
+        # Perform actions before the original await
+        print(f"Before await {given_name} {dt.datetime.now()}")
+
+        # Await the original coroutine
+        result = await coro(*args, **kwargs)
+
+        # Perform actions after the original await
+        print("After await {given_name} {dt.datetime.now()}")
+        return result
+    return wrapper
+
 # ------------ parse the command line ---------------
 
 def parseCmdLine():
@@ -661,7 +679,7 @@ async def connected(urlmask = URLMASK, reconnection_count = 3, wait_time = 1):
         if connection_count == 0:
             return False
 
-
+wrapped_connected = intercept_await(connected, "connected")
 
 async def ws_send(msg, retry_connect = False):
     """
@@ -673,7 +691,8 @@ async def ws_send(msg, retry_connect = False):
         if not websocket.open:
             logger.warning("Websocket not open")
             if retry_connect:
-                await connected(URLMASK, 20, 3)
+                #await connected(URLMASK, 20, 3)
+                await wrappted_connected(URLMASK, 20, 3) # DEBUG
             else:
                 success = False
                 break
@@ -686,6 +705,7 @@ async def ws_send(msg, retry_connect = False):
             success = False
     return success
 
+wrapped_ws_send = intercept_await(ws_send, "ws_send")
 
 async def main():
     """
@@ -717,9 +737,9 @@ async def main():
             # ping loop
             try:
                 while True:
-                    print(f"Tasks count: {task_count()}")
                     await asyncio.sleep(3) # ping every x seconds
-                    if not await ws_send("ping", retry_connect = True):
+                    #if not await ws_send("ping", retry_connect = True): # DEBUG 
+                    if not await wrapped_ws_send("ping", retry_connect = True):
                         logger.error("ping failed")
                         break
                     if not bbgthread.is_alive():
