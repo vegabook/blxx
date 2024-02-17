@@ -714,30 +714,24 @@ async def main():
             bbgthread = threading.Thread(target=bbgrunner.comloop, args=(), daemon=True)
             bbgthread.start()
             # ping loop
-            retry_ping_count = 0
             try:
                 while True:
                     await asyncio.sleep(3) # ping every x seconds
-                    success = await ws_send("ping", retry_connect = True)
-                    if success:
-                        retry_ping_count = 0
-                    else:
-                        logger.error(f"Ping failed. Retry count {retry_ping_count}")
-                        retry_ping_count += 1
-                        if retry_ping_count > 20:
-                            logger.error("Too many ping failures")
-                            break
+                    if not await ws_send("ping", retry_connect = True):
+                        logger.error("ping failed")
+                        break
                     if not bbgthread.is_alive():
                         logger.error("Bloomberg thread died")
                         break
             except Exception as e:
                 logger.error(f"ping loop error {e}")
                 break
-            stopevent.set()
-            await websocket.close()
-            await comtask
-            await datatask
-            bbgthread.join()
+            finally: 
+                stopevent.set()
+                await websocket.close()
+                await comtask
+                await datatask
+                bbgthread.join()
         await asyncio.sleep(1)
 
 
