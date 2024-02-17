@@ -671,6 +671,7 @@ async def ws_send(msg, retry_connect = False):
     buffdeque.appendleft(msg) 
     while len(buffdeque) > 0:
         if not websocket.open:
+            logger.warning("Websocket not open")
             if retry_connect:
                 await connected(URLMASK, 20, 3)
             else:
@@ -684,6 +685,14 @@ async def ws_send(msg, retry_connect = False):
             logger.warning(f"Websocket send failed with error {e}. Buffer cleared")
             success = False
     return success
+
+def task_count():
+    """ 
+    count the number of tasks in the event loop for debugging purposes
+    """
+    tasks = asyncio.Task.all_tasks()
+    tasks = [t for t in tasks if not t.done()]
+    return len(tasks)
 
 
 async def main():
@@ -716,6 +725,7 @@ async def main():
             # ping loop
             try:
                 while True:
+                    print(f"Tasks count: {task_count()}")
                     await asyncio.sleep(3) # ping every x seconds
                     if not await ws_send("ping", retry_connect = True):
                         logger.error("ping failed")
