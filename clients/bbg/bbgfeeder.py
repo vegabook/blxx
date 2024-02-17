@@ -692,7 +692,7 @@ async def ws_send(msg, retry_connect = False):
             logger.warning("Websocket not open")
             if retry_connect:
                 #await connected(URLMASK, 20, 3)
-                await wrappted_connected(URLMASK, 20, 3) # DEBUG
+                await wrapped_connected(URLMASK, 20, 3) # DEBUG
             else:
                 success = False
                 break
