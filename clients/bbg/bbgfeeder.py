@@ -691,7 +691,6 @@ async def ws_send(msg, retry_connect = False):
     buffdeque.appendleft(msg) 
     while len(buffdeque) > 0:
         if not websocket.open:
-            logger.warning("Websocket not open")
             if retry_connect:
                 await connected(URLMASK, 20, 3)
             else:

@@ -44,7 +44,8 @@ defmodule Blxx.Dag.DagExperiments do
     {d, g}
   end
 
-  def fx({d, g}) do
+  def fx() do
+    {:ok, {d, g}, f} = fileman()
 
     devlist = [
       :USDGBP,

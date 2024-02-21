@@ -271,7 +271,7 @@ defmodule Blxx.Dag do
   @doc """
   recursive subtree of a graph with starting node root
   all meta kv pairs of parent nodes will be passed to
-  child nodes unless overridden by child nodes
+  child nodes unless overridden by child nodes with same key
   """
   def subqual(graph, root, newgraph \\ :digraph.new(), pmeta \\ %{}) when is_atom(root) do
     # TODO make this into separate allchildren function that then has equivalent of allmeta
@@ -314,8 +314,9 @@ defmodule Blxx.Dag do
     with {_, _} <- :digraph.vertex(graph, node) do
       [node] ++ all_parents(graph, node)
       |> Enum.map(fn v -> :digraph.vertex(graph, v) end)
+      |> Enum.into(%{})
     else
-      false -> []
+      false -> %{}
     end
   end
 

@@ -10,9 +10,6 @@ defmodule BlxxWeb.BbgSocket do
 
   require Logger
 
-  alias Blxx.Tick
-  alias Blxx.Bar
-
   def child_spec(_opts) do
     # We won't spawn any process, so let's return a dummy task
     %{id: Task, start: {Task, :start_link, [fn -> :ok end]}, restart: :transient}
@@ -74,7 +71,7 @@ defmodule BlxxWeb.BbgSocket do
   end
 
   def handle_info({:com, com}, state) do
-    [command, cid, payld] = com
+    [command, cid, _payld] = com
     {:push, {:binary, Msgpax.pack!(com)}, state}
   end
 

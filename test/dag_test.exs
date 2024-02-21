@@ -175,18 +175,19 @@ defmodule TestDag do
     # see if we can change the meta of a vertex
     {d, g} = Blxx.Dag.DagExperiments.fx()
     {_, brlmeta} = :digraph.vertex(g, :USDBRL)
-    assert brlmeta[:ticker] == "USDBRL Curncy"
-    assert brlmeta[:source] == :blp
+    assert Kernel.get_in(brlmeta, [:sources, :blp, :topic]) == "USDBRL Curncy"
+    assert Map.has_key?(brlmeta[:sources], :blp)
+
     sg = Blxx.Dag.subqual(g, :root) # fully qualified subgraph with copied meta from parent nodes
     {_, brlmeta2} = :digraph.vertex(sg, :USDBRL)
     assert brlmeta2[:desc] == "latin america"
-
+  
     Blxx.Dag.add_vertex({d, g}, :USDBRL, :latam, %{desc: "this_is_new_meta for USDBRL"})
     {_, brlmeta3} = :digraph.vertex(g, :USDBRL)
     assert brlmeta3[:desc] == "this_is_new_meta for USDBRL"
-    # assert no other keys for brlmeta3
+    # assert no other keys for brlmeta
     assert Map.keys(brlmeta3) == [:desc]
-
+  
   end
 
 end
