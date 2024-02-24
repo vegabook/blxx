@@ -17,6 +17,7 @@ import os
 from sockauth import getKey
 from collections import deque
 import struct
+import inspect
 
 from util.SubscriptionOptions import \
     addSubscriptionOptions, \
@@ -268,19 +269,22 @@ class SubscriptionEventHandler(object):
     def processSubscriptionStatus(self, event):
         timeStamp = self.getTimeStamp()
         for msg in event:
+            pymsg = msg.toPy()
             topic = msg.correlationId().value()
             if msg.messageType() == blpapi.Names.SUBSCRIPTION_FAILURE:
-                sendmsg = (RESP_STATUS, (str(msg.messageType()), topic))
+                sendmsg = (RESP_STATUS, (str(msg.messageType()), topic, pymsg))
             elif msg.messageType() == blpapi.Names.SUBSCRIPTION_TERMINATED:
                 correl = msg.correlationId().value()
                 subs.remove(correl)
-                print(f"!!!!!!! sub terminated for {correl}")
-                stopevent.set()
-                sendmsg = (RESP_STATUS, (str(msg.messageType()), topic))
+                print(f"!!!!!!! sub terminated for {correl}") # DEBUG
+                stopevent.set() # DEBUG
+                sendmsg = (RESP_STATUS, (str(msg.messageType()), topic, pymsg))
             elif msg.messageType() == blpapi.Names.SUBSCRIPTION_STARTED:
                 correl = msg.correlationId().value()
                 subs.add(correl)
-                sendmsg = (RESP_STATUS, (str(msg.messageType()), topic))
+                sendmsg = (RESP_STATUS, (str(msg.messageType()), topic, pymsg))
+            else:
+                sendmsg = (RESP_STATUS, (str(msg.messageType()), topic, pymsg))
             dataq.put(sendmsg)
 
     def searchMsg(self, msg, fields):
@@ -538,6 +542,7 @@ class BbgRunner():
                     newsubs = [t for t in strtopics if t.upper() not in us]
                     alreadysubs = [t for t in strtopics if t.upper() in us]
                     if newsubs:
+                        logger.info(f"Subscribing to {newsubs}")
                         sub, correls = createSubscriptionList(newsubs, fields, options)
                         self.subservices["session"].subscribe(sub)
                     else:

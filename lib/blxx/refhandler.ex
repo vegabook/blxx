@@ -30,7 +30,7 @@ defmodule Blxx.RefHandler do
 
   @doc """
   unpack data, then check if message is an ack or actual data, 
-  and handle accordingly
+  and handle accordingly. 
   """
   def handle_call({:received, message}, _from, state) do
     data = Msgpax.unpack!(message) # TODO spawn here? If yes then how to handle out-of-order for partial=false
@@ -45,7 +45,8 @@ defmodule Blxx.RefHandler do
 
 
   @doc """ 
-  prepare data structures for a new incoming request. 
+  We have received an acknowledge from bbgfeeder, for an incoming request.
+  So we prepare data structures for a new incoming request. 
   """
   def handle_cast({:ack, data}, state) do
     ["ack", %{"cid" => cid}] = data
