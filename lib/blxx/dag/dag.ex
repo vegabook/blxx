@@ -57,15 +57,11 @@ defmodule Blxx.Dag do
     :dets.close(detspath)
   end
 
-  @doc """
-   atomic add of a vertex and its edge to parent and save to dets
-   if any stage fails preceding successes are rolled back
-   yes nested case anti pattern yada but this is fine with only 3 levels
-   https://elixirforum.com/t/pattern-matching-using-first-rest-in-with-clause-seems-to-fail/60541 
-   TODO document paramaters and return values
-  """
 
   defp atomic_vedge({detspath, graph}, v, parent, vmeta, emeta, ts) do
+    #atomic add of a vertex and its edge to parent and save to dets
+    #if any stage fails preceding successes are rolled back
+    #https://elixirforum.com/t/pattern-matching-using-first-rest-in-with-clause-seems-to-fail/60541 
     case :digraph.add_vertex(graph, v, vmeta) do
       # TODO handle metadata change or augmentation. Maybe force new vertex, but then don't re-add edge. 
       #     or maybe something else. 
@@ -146,7 +142,7 @@ defmodule Blxx.Dag do
       List.foldl(vlist, {:ok, {detspath, graph}}, fn v, acc ->
         case acc do
           {:ok, {detspath, graph}} ->
-            add_vertex({detspath, graph}, v, parent, metafun.(v), ts)
+            add_vertex({detspath, graph}, v, parent, metafun.(v), %{}, ts)
 
           {:error, reason} ->
             {:error, reason}
@@ -165,7 +161,7 @@ defmodule Blxx.Dag do
     with {:tsnum, true} <- {:tsnum, is_number(ts)},
          {:novdupe, true} <-
            {:novdupe, !Enum.member?(:digraph.out_neighbours(graph, parent), child)} do
-      case :digraph.add_edge(graph, parent, child) do
+      case :digraph.add_edge(graph, parent, child, meta) do
         [:"$e" | rest] ->
 
             dets_result = 
@@ -221,7 +217,7 @@ defmodule Blxx.Dag do
 
   def expand_graph(graph, tsnodes) do
     # given sorted tsnodes, extend graph with them
-    Enum.map(tsnodes, fn {v, parent, ts, type, meta} ->
+    Enum.map(tsnodes, fn {v, parent, _ts, type, meta} ->
       case type do
         :vertex ->
           :digraph.add_vertex(graph, v, meta)
@@ -310,10 +306,6 @@ defmodule Blxx.Dag do
     Enum.reduce(:digraph.in_neighbours(graph, node), parents, fn v, acc ->
       [v | all_parents(graph, v, acc)]
     end)
-  end
-
-  def all_parents(graph, :root, parents) do
-    parents
   end
 
 

@@ -2,7 +2,8 @@
 
 Access the Bloomberg API from Elixir. Live and historic data. Suitable for terminal and B-Pipe users.  
 
-This is a heavy work in progress. However it does now handle live subscriptions which show up as constantly updating streams. Also all the historic reference request types are catered for amongst others:
+This is a heavy work in progress. The Elixir-side API is under heavy experimental development and is not stable. 
+All Bloomberg functionality however is now present, and can be perused for inspiration. 
 
 * Ticker data request (streaming prices)
 * Bar data request (streaming OHLC)

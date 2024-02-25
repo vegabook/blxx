@@ -93,8 +93,6 @@ defmodule TestDag do
         currs, :fx, 
         fn v -> %{ticker: to_string(v) <> " Curncy", source: :blp} end)
     assert isokay == :ok
-    # print out all the vertices
-    IO.inspect Enum.map(:digraph.vertices(g), fn v -> :digraph.vertex(g, v) end)
     # check if edges are all there
     edgevs = Enum.map(:digraph.edges(g), fn e -> Blxx.Dag.edge_vertices(g, e) end)
     assert Enum.all?(Enum.map(currs, fn v -> Enum.member?(edgevs, {:fx, v}) end))
@@ -175,8 +173,6 @@ defmodule TestDag do
     # see if we can change the meta of a vertex
     {d, g} = Blxx.Dag.DagExperiments.fx()
     {_, brlmeta} = :digraph.vertex(g, :USDBRL)
-    assert Kernel.get_in(brlmeta, [:sources, :blp, :topic]) == "USDBRL Curncy"
-    assert Map.has_key?(brlmeta[:sources], :blp)
 
     sg = Blxx.Dag.subqual(g, :root) # fully qualified subgraph with copied meta from parent nodes
     {_, brlmeta2} = :digraph.vertex(sg, :USDBRL)
@@ -190,8 +186,14 @@ defmodule TestDag do
   
   end
 
-  test "augmented_meta" do
+  test "add_edges" do
+    {d, g} = Blxx.Dag.DagExperiments.fx_with_sources()
+    edges = :digraph.out_edges(g, :blp)
+    assert Enum.all?(Enum.map(edges, fn e -> :digraph.edge(g, e) |> elem(3) |> Map.has_key?(:fields) end))
+    assert Enum.all?(Enum.map(edges, fn e -> :digraph.edge(g, e) |> elem(3) |> Map.has_key?(:ticker) end))
   end
+
+
 
 
 end

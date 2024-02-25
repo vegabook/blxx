@@ -95,18 +95,61 @@ defmodule Blxx.Dag.DagExperiments do
     Blxx.Dag.add_vertex({d, g}, :emea, :fx, %{:desc => "europe, middle east, africa"})
     Blxx.Dag.add_vertex({d, g}, :asia, :fx, %{:desc => "asia"})
     Blxx.Dag.add_vertex({d, g}, :latam, :fx, %{:desc => "latin america"})
-    Blxx.Dag.add_vertices({d, g}, devlist, :dev, fn x -> 
-      %{sources: %{blp: %{topic: to_string(x) <> " Curncy", fields: ["LAST_PRICE"]}}} end)
-    Blxx.Dag.add_vertices({d, g}, emealist, :emea, fn x -> 
-      %{sources: %{blp: %{topic: to_string(x) <> " Curncy", fields: ["LAST_PRICE"]}}} end)
-    Blxx.Dag.add_vertices({d, g}, asialist, :asia, fn x -> 
-      %{sources: %{blp: %{topic: to_string(x) <> " Curncy", fields: ["LAST_PRICE"]}}} end)
-    Blxx.Dag.add_vertices({d, g}, latamlist, :latam, fn x -> 
-      %{sources: %{blp: %{topic: to_string(x) <> " Curncy", fields: ["LAST_PRICE"]}}} end)
-
+    Blxx.Dag.add_vertices({d, g}, devlist, :dev)
+    Blxx.Dag.add_vertices({d, g}, emealist, :emea)
+    Blxx.Dag.add_vertices({d, g}, asialist, :asia)
+    Blxx.Dag.add_vertices({d, g}, latamlist, :latam)
     {d, g}
-
   end
+
+  def fx_with_sources do
+    # add a :blp source node and link it to all the fx nodes
+    {d, g} = fx()
+    Blxx.Dag.add_vertex({d, g}, :blp, :root, %{:source_name => "bloomberg"})
+    Blxx.Dag.add_edge({d, g}, :blp, :USDGBP, %{ticker: "USDGBP Curncy", fields: ["LAST_PRICE"]})
+    Blxx.Dag.add_edge({d, g}, :blp, :USDCHF, %{ticker: "USDCHF Curncy", fields: ["LAST_PRICE"]})
+    Blxx.Dag.add_edge({d, g}, :blp, :USDCAD, %{ticker: "USDCAD Curncy", fields: ["LAST_PRICE"]})
+    Blxx.Dag.add_edge({d, g}, :blp, :USDJPY, %{ticker: "USDJPY Curncy", fields: ["LAST_PRICE"]})
+    Blxx.Dag.add_edge({d, g}, :blp, :USDSEK, %{ticker: "USDSEK Curncy", fields: ["LAST_PRICE"]})
+    Blxx.Dag.add_edge({d, g}, :blp, :USDDKK, %{ticker: "USDDKK Curncy", fields: ["LAST_PRICE"]})
+    Blxx.Dag.add_edge({d, g}, :blp, :USDAUD, %{ticker: "USDAUD Curncy", fields: ["LAST_PRICE"]})
+    Blxx.Dag.add_edge({d, g}, :blp, :USDSGD, %{ticker: "USDSGD Curncy", fields: ["LAST_PRICE"]})
+    Blxx.Dag.add_edge({d, g}, :blp, :USDHKD, %{ticker: "USDHKD Curncy", fields: ["LAST_PRICE"]})
+    Blxx.Dag.add_edge({d, g}, :blp, :EURHUF, %{ticker: "EURHUF Curncy", fields: ["LAST_PRICE"]})
+    Blxx.Dag.add_edge({d, g}, :blp, :USDRUB, %{ticker: "USDRUB Curncy", fields: ["LAST_PRICE"]})
+    Blxx.Dag.add_edge({d, g}, :blp, :USDTRY, %{ticker: "USDTRY Curncy", fields: ["LAST_PRICE"]})
+    Blxx.Dag.add_edge({d, g}, :blp, :USDZAR, %{ticker: "USDZAR Curncy", fields: ["LAST_PRICE"]})
+    Blxx.Dag.add_edge({d, g}, :blp, :EURRON, %{ticker: "EURRON Curncy", fields: ["LAST_PRICE"]})
+    Blxx.Dag.add_edge({d, g}, :blp, :EURBGN, %{ticker: "EURBGN Curncy", fields: ["LAST_PRICE"]})
+    Blxx.Dag.add_edge({d, g}, :blp, :EURPLN, %{ticker: "EURPLN Curncy", fields: ["LAST_PRICE"]})
+    Blxx.Dag.add_edge({d, g}, :blp, :EURCZK, %{ticker: "EURCZK Curncy", fields: ["LAST_PRICE"]})
+    Blxx.Dag.add_edge({d, g}, :blp, :USDSAR, %{ticker: "USDSAR Curncy", fields: ["LAST_PRICE"]})
+    Blxx.Dag.add_edge({d, g}, :blp, :USDAED, %{ticker: "USDAED Curncy", fields: ["LAST_PRICE"]})
+    Blxx.Dag.add_edge({d, g}, :blp, :USDCNY, %{ticker: "USDCNY Curncy", fields: ["LAST_PRICE"]})
+    Blxx.Dag.add_edge({d, g}, :blp, :USDINR, %{ticker: "USDINR Curncy", fields: ["LAST_PRICE"]})
+    Blxx.Dag.add_edge({d, g}, :blp, :USDKRW, %{ticker: "USDKRW Curncy", fields: ["LAST_PRICE"]})
+    Blxx.Dag.add_edge({d, g}, :blp, :USDIDR, %{ticker: "USDIDR Curncy", fields: ["LAST_PRICE"]})
+    Blxx.Dag.add_edge({d, g}, :blp, :USDMYR, %{ticker: "USDMYR Curncy", fields: ["LAST_PRICE"]})
+    Blxx.Dag.add_edge({d, g}, :blp, :USDTHB, %{ticker: "USDTHB Curncy", fields: ["LAST_PRICE"]})
+    Blxx.Dag.add_edge({d, g}, :blp, :USDPHP, %{ticker: "USDPHP Curncy", fields: ["LAST_PRICE"]})
+    Blxx.Dag.add_edge({d, g}, :blp, :USDMXN, %{ticker: "USDMXN Curncy", fields: ["LAST_PRICE"]})
+    Blxx.Dag.add_edge({d, g}, :blp, :USDBRL, %{ticker: "USDBRL Curncy", fields: ["LAST_PRICE"]})
+    Blxx.Dag.add_edge({d, g}, :blp, :USDCOP, %{ticker: "USDCOP Curncy", fields: ["LAST_PRICE"]})
+    Blxx.Dag.add_edge({d, g}, :blp, :USDPEN, %{ticker: "USDPEN Curncy", fields: ["LAST_PRICE"]})
+    Blxx.Dag.add_edge({d, g}, :blp, :USDCLP, %{ticker: "USDCLP Curncy", fields: ["LAST_PRICE"]})
+    {d, g}
+  end
+
+  def fx_change_source do
+    {d, g} = fx_with_sources()
+    Blxx.Dag.add_edge({d, g}, :blp, :USDGBP, %{ticker: "USDGBP Curncy", fields: ["BID", "ASK"]})
+    {d, g}
+  end
+
+
+
+
+
 
 
 end

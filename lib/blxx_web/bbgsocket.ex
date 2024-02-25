@@ -71,7 +71,6 @@ defmodule BlxxWeb.BbgSocket do
   end
 
   def handle_info({:com, com}, state) do
-    [command, cid, _payld] = com
     {:push, {:binary, Msgpax.pack!(com)}, state}
   end
 
