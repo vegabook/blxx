@@ -49,7 +49,7 @@ defmodule BlxxWeb.BbgSocket do
 
     case msgtype do
       @resp_ref -> 
-        GenServer.call(Blxx.RefHandler, {:received, message})
+        GenServer.cast(Blxx.RefHandler, {:received, message})
         Logger.info "Received refdata"
       _ -> 
         GenServer.cast(Blxx.SubHandler, {:received, message})

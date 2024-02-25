@@ -57,22 +57,24 @@ defmodule Blxx.Dag do
     :dets.close(detspath)
   end
 
+  @doc """
+   atomic add of a vertex and its edge to parent and save to dets
+   if any stage fails preceding successes are rolled back
+   yes nested case anti pattern yada but this is fine with only 3 levels
+   https://elixirforum.com/t/pattern-matching-using-first-rest-in-with-clause-seems-to-fail/60541 
+   TODO document paramaters and return values
+  """
 
-  defp atomic_vedge({detspath, graph}, v, parent, meta, ts) do
-    # atomic add of a vertex and its edge to parent and save to dets
-    # if any stage fails preceding successes are rolled back
-    # yes nested case anti pattern yada but this is fine with only 3 levels
-    # https://elixirforum.com/t/pattern-matching-using-first-rest-in-with-clause-seems-to-fail/60541 
-    case :digraph.add_vertex(graph, v, meta) do
+  defp atomic_vedge({detspath, graph}, v, parent, vmeta, emeta, ts) do
+    case :digraph.add_vertex(graph, v, vmeta) do
       # TODO handle metadata change or augmentation. Maybe force new vertex, but then don't re-add edge. 
       #     or maybe something else. 
       v -> 
-        case :digraph.add_edge(graph, parent, v) do
+        case :digraph.add_edge(graph, parent, v, emeta) do
           [:"$e" | rest] ->
-
             dets_result = 
             try do
-              :dets.insert(detspath, {v, parent, ts, :vertedge, meta})
+              :dets.insert(detspath, {v, parent, ts, :vertedge, vmeta, emeta})
             rescue
               e in ArgumentError -> {:error, e}
             end
@@ -97,19 +99,22 @@ defmodule Blxx.Dag do
   end
 
 
-  def add_vertex({detspath, graph}, v, 
+  def add_vertex({detspath, graph}, 
+    v, 
     parent \\ :root, 
-    meta \\ %{}, 
+    vmeta \\ %{}, 
+    emeta \\ %{},
     ts \\ Blxx.Util.utc_stamp()) do
     # store a vertex in the vstore and add it to the graph 
     # test if adding it works before committing to dets
     with {:vatom, true} <- {:vatom, is_atom(v)},
          {:patom, true} <- {:patom, is_atom(parent)},
          {:tsnum, true} <- {:tsnum, is_number(ts)},
-         {:mmap, true} <- {:mmap, is_map(meta)} do
+         {:vmmap, true} <- {:vmmap, is_map(vmeta)}, 
+         {:emmap, true} <- {:emmap, is_map(emeta)} do
          # do inserts on the test graph to make sure they work
          # no duplicate edge, also handles parent doesn't exist
-      atomic_vedge({detspath, graph}, v, parent, meta, ts)
+      atomic_vedge({detspath, graph}, v, parent, vmeta, emeta, ts)
     else
       {:vatom, false} ->
         {:error, "vertex must be an atom"}
@@ -120,9 +125,11 @@ defmodule Blxx.Dag do
       {:tsnum, false} ->
         {:error, "timestamp must be a number"}
 
-      {:mmap, false} ->
-        {:error, "meta must be a map"}
+      {:vmmap, false} ->
+        {:error, "vertext meta must be a map"}
 
+      {:emmap, false} ->
+        {:error, "edge meta must be a map"}
     end
   end
 
@@ -152,7 +159,7 @@ defmodule Blxx.Dag do
   end
 
 
-  def add_edge({detspath, graph}, parent, child, ts \\ Blxx.Util.utc_stamp()) do
+  def add_edge({detspath, graph}, parent, child, meta \\ {}, ts \\ Blxx.Util.utc_stamp()) do
     # store an edge in the vstore and add it to the graph
     # atomic like atomic_vedge but with no vertex insert
     with {:tsnum, true} <- {:tsnum, is_number(ts)},
@@ -163,7 +170,7 @@ defmodule Blxx.Dag do
 
             dets_result = 
             try do
-              :dets.insert(detspath, {child, parent, ts, :edge, %{}})
+              :dets.insert(detspath, {child, parent, ts, :edge, meta})
             rescue
               e in ArgumentError -> {:error, e}
             end
@@ -238,7 +245,10 @@ defmodule Blxx.Dag do
     graph
   end
 
-
+  @doc """
+  gets all the leaves of a graph, optionally starting somewhere
+  other than :root node
+  """
   def leaves(graph, root \\ [:root]) # defined header for default value
   # gets all the leaves of a graph, optionally starting somewhere
   # other than :root node

@@ -11,7 +11,8 @@ config :blxx,
   ecto_repos: [Blxx.Repo]
 
 config :blxx, 
-  dets_dir: "/home/tbrowne/data/blxx/"
+  dets_dir: "/home/tbrowne/data/blxx/",
+  graph_dir: "subscriptions/"
 
 # Configures the endpoint
 config :blxx, BlxxWeb.Endpoint,

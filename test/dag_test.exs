@@ -170,7 +170,7 @@ defmodule TestDag do
     assert Map.has_key?(dmeta, :a)
     assert dmeta[:a] == "b"
   end
-
+   
   test "new_meta" do
     # see if we can change the meta of a vertex
     {d, g} = Blxx.Dag.DagExperiments.fx()
@@ -189,5 +189,9 @@ defmodule TestDag do
     assert Map.keys(brlmeta3) == [:desc]
   
   end
+
+  test "augmented_meta" do
+  end
+
 
 end

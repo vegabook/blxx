@@ -26,19 +26,19 @@ defmodule Blxx.RefHandler do
     Process.send_after(self(), :check_timer, @ms_timeout)
     {:ok, state}
   end
-
+  
 
   @doc """
   unpack data, then check if message is an ack or actual data, 
   and handle accordingly. 
   """
-  def handle_call({:received, message}, _from, state) do
+  def handle_cast({:received, message}, _from, state) do
     data = Msgpax.unpack!(message) # TODO spawn here? If yes then how to handle out-of-order for partial=false
     case Enum.at(data, 0) do
-      "refdata" -> 
-        GenServer.cast(__MODULE__, {:refdata, data})
       "ack" -> 
         GenServer.cast(__MODULE__, {:ack, data})
+      "refdata" -> 
+        GenServer.cast(__MODULE__, {:refdata, data})
     end
     {:reply, :ok, state}
   end
@@ -68,7 +68,7 @@ defmodule Blxx.RefHandler do
     
     # insert the data into the correct place
     IO.puts "Received refdata #{inspect(data)}"
-    IO.puts "Partial is #{inspect(partial)}"
+    IO.puts "Partial flag is #{inspect(partial)}"
     newstate = 
       Kernel.put_in(state, [:cid_map, cid], [data | state[:cid_map][cid]]) 
       |> Map.put(:timeout, System.monotonic_time(:millisecond) + @ms_timeout)

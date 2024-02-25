@@ -32,10 +32,8 @@ defmodule Blxx.Com do
   # 3. use dynamic supervisor launch barsubscribe genservers
   # 4. only the barsubscibe genservers can get history which is specified by timestamp at launch
   # 5. barsubscribe genserver must mark when it cannot get history for a period so that it is not fetched again
-  # 6. barsubscribe genserver must populate a stream for the node. 
   # 7. q. what if multiple barsubscribes of inner nodes subscribe to same leaf topic? Share?
   # 8. Convert functions here to snake_case
-  # 9. Consider removing camelCase from this module
   # 10. Consider moving convenience functions like barSubscribe, referenceDataRequest, etc to a separate module
 
   # PLEASE NOTE THAT CAMELCASE IS USED HERE TO MATCH THE BLOOMBERG API
@@ -57,7 +55,7 @@ defmodule Blxx.Com do
   #       if more than one tickers
   # use logger for all communications
   # implement "raw" command
-  def com({:blp, [:barsubscribe, %{tickers: tickers, fields: fields} = params]}) do
+  def com({:blp, [:barsubscribe, %{tickers: tickers, fields: fields}]}) do
     # TODO possibly just move this into barSusbscribe
     # TODO can only subscribe to something that is in the dag tree but also implement a raw command
     # TODO send cid which is the dag tree node, to the DynSupervisor
@@ -87,6 +85,7 @@ defmodule Blxx.Com do
   # --------- subscriptions ----------
 
   def barSubscribe(params) when is_map(params) do
+    # this should only be allowed from a DAG entry
     oparams = Map.put_new(params, :options, %{})
 
     with {:has_topics, true} <- {:has_topics, Map.has_key?(oparams, :topics)},

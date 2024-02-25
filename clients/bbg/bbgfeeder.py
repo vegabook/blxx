@@ -17,7 +17,6 @@ import os
 from sockauth import getKey
 from collections import deque
 import struct
-import inspect
 
 from util.SubscriptionOptions import \
     addSubscriptionOptions, \
@@ -354,8 +353,8 @@ class SubscriptionEventHandler(object):
                 self.processSubscriptionStatus(event)
             else:
                 self.processMiscEvents(event)
-        except blpapi.Exception as exception:
-            print(f"Failed to process event {event}: {exception}")
+        except blpapi.Exception as e:
+            print(f"Failed to process event {event}: {e}")
         return False
 
 
@@ -627,7 +626,9 @@ async def com_dispatcher():
                 logger.error("Msgpack command deserialization failed")
                 command = None
             if command is not None:
-                if command[0] != "pong":
+                if command[0] == "pong":
+                    pass
+                else:
                     logger.info(f"{Fore.YELLOW}Command {Style.BRIGHT}{command}{Style.RESET_ALL}")
                     await loop.run_in_executor(None, comq.put, command) # async put in sync queue
 
@@ -741,8 +742,8 @@ async def main():
             # ping loop
             try:
                 while True:
-                    await asyncio.sleep(3) # ping every x seconds
-                    if not await ws_send("ping", retry_connect = True): # 
+                    await asyncio.sleep(0.5) # ping every x seconds
+                    if not await ws_send("ping", retry_connect = True): 
                         logger.error("ping failed")
                         break
                     if not bbgthread.is_alive():

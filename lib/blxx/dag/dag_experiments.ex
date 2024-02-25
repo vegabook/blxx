@@ -14,7 +14,7 @@ defmodule Blxx.Dag.DagExperiments do
   end
 
   def bigdag() do
-    {:ok, {d, g}, f} = fileman()
+    {:ok, {d, g}, _f} = fileman()
     Blxx.Dag.add_vertex({d, g}, :a, :root, %{a: "a"})
     Blxx.Dag.add_vertex({d, g}, :b)
     Blxx.Dag.add_vertex({d, g}, :c, :root, %{oui: "dacord", la: %{"un" =>  1}})
@@ -45,7 +45,7 @@ defmodule Blxx.Dag.DagExperiments do
   end
 
   def fx() do
-    {:ok, {d, g}, f} = fileman()
+    {:ok, {d, g}, _f} = fileman()
 
     devlist = [
       :USDGBP,
