@@ -171,6 +171,16 @@ defmodule TestDag do
     assert dmeta[:a] == "b"
     Blxx.Dag.close_store({d, g})
   end
+
+
+  test "bad_parent" do
+    {:ok, {d, g}, f} = Blxx.Dag.DagExperiments.fx()
+    Blxx.Dag.close_store({d, g})
+    {:ok, {d, g}} = Blxx.Dag.open_store(f)
+    assert Blxx.Dag.add_vertedge({d, g}, :a, :bad_parent) == {:error, "parent does not exist"}
+    Blxx.Dag.close_store({d, g})
+  end
+
    
   test "new_meta" do
     # see if we can change the meta of a vertex
@@ -183,24 +193,16 @@ defmodule TestDag do
     {_, brlmeta2} = :digraph.vertex(sg, :USDBRL)
     assert brlmeta2[:desc] == "latin america"
   
-    Blxx.Dag.add_vertedge({d, g}, :USDBRL, :latam, %{desc: "this_is_new_meta for USDBRL"}, 
-      %{desc: "this is new meta for :latam to USDBRL edge"})
+    Blxx.Dag.change_vmeta({d, g}, :USDBRL, %{desc: "this_is_new_meta for USDBRL"})
     Blxx.Dag.close_store({d, g})
     {:ok, {d, g}} = Blxx.Dag.open_store(f)
     {_, brlmeta3} = :digraph.vertex(g, :USDBRL)
     assert brlmeta3[:desc] == "this_is_new_meta for USDBRL"
-    edgemeta = :digraph.out_edges(g, :latam)
-      |> Enum.filter(fn e -> :digraph.edge(g, e) == {:latam, :USDBRL} end)
-      #|> Enum.at(0)
-    #|> elem(0)
-    IO.inspect(edgemeta)
-    # assert no other keys for brlmeta
     assert Map.keys(brlmeta3) == [:desc]
-    assert Map.keys(edgemeta) == [:desc]
     Blxx.Dag.close_store({d, g})
-  
   end
 
+  
   test "add_edges" do
     # TODO see if this works with {:ok, {d, g}, f} instead of just g
     {:ok, {d, g}, f} = Blxx.Dag.DagExperiments.fx_with_sources()
@@ -210,22 +212,18 @@ defmodule TestDag do
     Blxx.Dag.close_store({d, g})
   end
 
+
   test "change_edge" do
     {:ok, {d, g}, f} = Blxx.Dag.DagExperiments.fx_with_sources()
     Blxx.Dag.close_store({d, g})
     {:ok, {d, g}} = Blxx.Dag.open_store(f)
-    brledge = :digraph.out_edges(g, :blp) 
-      |> Enum.map(fn e -> :digraph.edge(g, e) end) 
-      |> Enum.filter(fn e -> e |> elem(2) == :USDBRL end)
-      |> Enum.at(0)
-      |> elem(0)
-    Blxx.Dag.add_edge({d, g}, :blp, :USDBRL, %{new_meta: "this is new meta"}) 
-    Blxx.Dag.close_store({d, g})
-    {:ok, {d, g}} = Blxx.Dag.open_store(f)
+    Blxx.Dag.change_emeta({d, g}, :blp, :USDBRL, %{new_meta: "this is new meta"}) 
+    #Blxx.Dag.close_store({d, g})
+    #{:ok, {d, g}} = Blxx.Dag.open_store(f)
     brlmeta = :digraph.out_edges(g, :blp) 
       |> Enum.map(fn e -> :digraph.edge(g, e) end) 
       |> Enum.filter(fn e -> e |> elem(2) == :USDBRL end)
-      |> Enum.at(0)
+      |> List.first
       |> elem(3)
     assert brlmeta == %{new_meta: "this is new meta"}
     Blxx.Dag.close_store({d, g})
@@ -235,7 +233,6 @@ defmodule TestDag do
   end
 
 
-  # TODO test adding children with add_edges
   # TODO check of adding any existing children to existing parent fails
     
     

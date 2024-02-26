@@ -28,11 +28,9 @@ defmodule Blxx.RefHandler do
   end
   
 
-  @doc """
-  unpack data, then check if message is an ack or actual data, 
-  and handle accordingly. 
-  """
   def handle_cast({:received, message}, _from, state) do
+    # Unpack data, then check if message is an ack or actual data, 
+    # and handle accordingly. 
     data = Msgpax.unpack!(message) # TODO spawn here? If yes then how to handle out-of-order for partial=false
     case Enum.at(data, 0) do
       "ack" -> 
@@ -43,12 +41,9 @@ defmodule Blxx.RefHandler do
     {:reply, :ok, state}
   end
 
-
-  @doc """ 
-  We have received an acknowledge from bbgfeeder, for an incoming request.
-  So we prepare data structures for a new incoming request. 
-  """
   def handle_cast({:ack, data}, state) do
+    # We have received an acknowledge from bbgfeeder, for an incoming request.
+    # So we prepare data structures for a new incoming request. 
     ["ack", %{"cid" => cid}] = data
     Logger.info "Received ack for cid: #{cid}"
     newstate = Kernel.put_in(state, [:cid_map, cid], [])
@@ -56,10 +51,8 @@ defmodule Blxx.RefHandler do
   end
 
   
-  @doc """
-  insert data into the cid_map, advance timer
-  """
   def handle_cast({:refdata, data}, state) do
+    # insert data into the cid_map, advance timer
     ["refdata", %{
       "cid" => cid,
       "data" => data, 
@@ -80,11 +73,9 @@ defmodule Blxx.RefHandler do
   end
 
 
-  @doc """
-  Reference data is sometimes composed of multiple packets, so we need to
-  check iif the reference data is complete, and if so send it to the database
-  """
   def handle_info({:complete, cid}, state) do
+    # Reference data is sometimes composed of multiple packets, so we need to
+    # check iif the reference data is complete, and if so send it to the database
     # send the data to the database
     IO.puts "Sending complete reference data to database for cid: #{cid}"
     #GenServer.cast(Blxx.Database, {:insert, cid, state[:cid_map][cid]})
@@ -99,10 +90,8 @@ defmodule Blxx.RefHandler do
   end
 
 
-  @doc """
-  periodically check if timer has expired, if we're still waiting for data
-  """
   def handle_info(:check_timer, state) do
+    #periodically check if timer has expired, if we're still waiting for data
     Process.send_after(self(), :check_timer, @ms_timeout) # re schedule
     # if cid_map is not empty, check we've received data before timeout
     if map_size(state[:cid_map]) > 0 do
@@ -120,7 +109,6 @@ defmodule Blxx.RefHandler do
   @doc """
   entirely clear the cid_map. DEBUG only
   """
-
   def clearqueue do
     GenServer.call(__MODULE__, :clearqueue)
   end

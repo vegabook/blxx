@@ -8,7 +8,7 @@ defmodule Blxx.Dag do
   # TODO ability to remove subtrees and their associated edges
   # TODO how to handle ordering since for some asset classes we will add lots of vertices and edges later
   #      possibly move to mnesia instead of dets. Then can index on timestamp but Q: can "next" in index be used?
-  #      * Alternatively use DETS table but key on timestamp and not on vertex name
+  #      Alternatively use DETS table but key on timestamp and not on vertex name
   #      This will allow for getting all the keys, then sorting them and rewriting the graph
 
   # -------------- dets vstore ---------------
@@ -54,44 +54,94 @@ defmodule Blxx.Dag do
     :dets.close(detspath)
   end
 
+  
+  def dets_nodes(detspath) do
+    # get all the vertices, vertedges, and edges from the vstore
+    :dets.foldl(fn elem, acc -> [elem | acc] end, [], detspath)
+    |> Enum.sort_by(fn x -> elem(x, 2) end)
+  end
+
+
+  def clean_nodes(detspath) do
+    # remove all vertices, vertedges, and edges from the vstore
+    # dangerous!
+    :dets.delete_all_objects(detspath)
+
+    :dets.insert_new(
+      detspath,
+      {:root, None, Blxx.Util.utc_stamp(), :vertex, %{}}
+    )
+
+    {:ok, {detspath, expand_graph(:digraph.new(), dets_nodes(detspath))}}
+  end
+
+
+  def expand_graph(graph, tsnodes) do
+    # given sorted tsnodes, extend graph with them
+    Enum.map(tsnodes, fn tsnode ->
+      case tsnode do
+        {v, _parent, _ts, :vertex, vmeta} ->
+          :digraph.add_vertex(graph, v, vmeta)
+        {v, parent, _ts, :vertedge, vmeta, emeta} ->
+          :digraph.add_vertex(graph, v, vmeta)
+          :digraph.add_edge(graph, parent, v, emeta)
+        {v, parent, _ts, :edge, emeta} ->
+          :digraph.add_edge(graph, parent, v, emeta)
+        {v, parent, _ts, :deledge} ->
+          :digraph.del_path(graph, parent, v)
+      end
+    end)
+    graph
+  end
+
+# ------------------ graph manipulation -----------------------
 
   defp atomic_vedge({detspath, graph}, v, parent, vmeta, emeta, ts) do
     #atomic add of a vertex and its edge to parent and save to dets
     #if any stage fails preceding successes are rolled back
     #https://elixirforum.com/t/pattern-matching-using-first-rest-in-with-clause-seems-to-fail/60541 
-    case :digraph.add_vertex(graph, v, vmeta) do
-      # TODO handle metadata change or augmentation. Maybe force new vertex, but then don't re-add edge. 
-      #     or maybe something else. 
-      v -> 
-        case :digraph.add_edge(graph, parent, v, emeta) do
-          [:"$e" | rest] ->
-            dets_result = 
-            try do
-              :dets.insert(detspath, {v, parent, ts, :vertedge, vmeta, emeta})
-            rescue
-              e in ArgumentError -> {:error, e}
-            end
+    with {:pexists, {parent, _}} <- {:pexists, :digraph.vertex(graph, parent)},
+         {:vnexists, false} <- {:vnexists, :digraph.vertex(graph, v)} do
+      case :digraph.add_vertex(graph, v, vmeta) do
+        # TODO handle metadata change or augmentation. Maybe force new vertex, but then don't re-add edge. 
+        #     or maybe something else. 
+        v -> 
+          case :digraph.add_edge(graph, parent, v, emeta) do
+            [:"$e" | rest] ->
+              dets_result = 
+              try do
+                :dets.insert(detspath, {v, parent, ts, :vertedge, vmeta, emeta})
+              rescue
+                e in ArgumentError -> {:error, e}
+              end
 
-            case dets_result do 
-              :ok -> {:ok, {detspath, graph}} # success function returns
-              # dets fail so rollback edge and vertex inserts
-              {:error, e} ->
-                :digraph.del_edge(graph, [:"$e" | rest])
-                :digraph.del_vertex(graph, v)
-                {:error, e}
-            end
-          # edge insert fail so rollback vertex insert
-          {:error, reason} ->
-            :digraph.del_vertex(graph, v)
-            {:error, reason}
-        end 
-      # vertex insert fail so return error
-      some_error ->
-        {:error, some_error}
+              case dets_result do 
+                :ok -> {:ok, {detspath, graph}} # success function returns
+                # dets fail so rollback edge and vertex inserts
+                {:error, e} ->
+                  :digraph.del_edge(graph, [:"$e" | rest])
+                  :digraph.del_vertex(graph, v)
+                  {:error, e}
+              end
+            # edge insert fail so rollback vertex insert
+            {:error, reason} ->
+              :digraph.del_vertex(graph, v)
+              {:error, reason}
+          end 
+        # vertex insert fail so return error
+        some_error ->
+          {:error, some_error}
+      end
+    else
+      {:pexists, false} -> {:error, "parent does not exist"}
+      {:vnexists, {v, _}} -> {:error, "vertex already exists"}
     end
   end
 
-
+  @doc """
+  Adds a vertex to the detspath and the graph. Note that
+  all vertices must have at least one edge, which can be to the root node.
+  """
   def add_vertedge({detspath, graph}, 
     v, 
     parent \\ :root, 
@@ -213,51 +263,49 @@ defmodule Blxx.Dag do
   end
 
 
-  def dets_nodes(detspath) do
-    # get all the vertices, vertedges, and edges from the vstore
-    :dets.foldl(fn elem, acc -> [elem | acc] end, [], detspath)
-    |> Enum.sort_by(fn x -> elem(x, 2) end)
+  @doc """
+  Changes meta for vertex
+  """
+  def change_vmeta({detspath, graph}, v, vmeta, ts \\ Blxx.Util.utc_stamp()) do
+    # version for changing vertex meta
+    with {:atomv, true} <- {:atomv, is_atom(v)},
+         {:mapm, true} <- {:mapm, is_map(vmeta)} do
+      case :digraph.add_vertex(graph, v, vmeta) do 
+        v -> :dets.insert(detspath, {v, None, ts, :vertex, vmeta})
+        some_error -> {:error, some_error}
+      end
+    else
+      {:atomv, false} -> {:error, "vertex must be an atom"}
+      {:mapm, false} -> {:error, "meta must be a map"}
+    end
   end
 
 
-  def clean_nodes(detspath) do
-    # remove all vertices, vertedges, and edges from the vstore
-    # dangerous!
-    :dets.delete_all_objects(detspath)
-
-    :dets.insert_new(
-      detspath,
-      {:root, None, Blxx.Util.utc_stamp(), :vertex, %{}}
-    )
-
-    {:ok, {detspath, expand_graph(:digraph.new(), dets_nodes(detspath))}}
+  @doc """
+  Changes meta for edge
+  """
+  def change_emeta({detspath, graph}, parent, child, emeta, ts \\ Blxx.Util.utc_stamp()) do
+    # version for changing edge meta
+    with {:atomv, true} <- {:atomv, is_atom(parent)},
+         {:atomv, true} <- {:atomv, is_atom(child)},
+         {:mapm, true} <- {:mapm, is_map(emeta)} do
+      :digraph.del_path(graph, parent, child)
+      :dets.insert(detspath, {child, parent, ts, :deledge})
+      :digraph.add_edge(graph, parent, child, emeta)
+      :dets.insert(detspath, {child, parent, ts, :edge, emeta})
+    else
+      {:atomv, false} -> {:error, "vertex must be an atom"}
+      {:mapm, false} -> {:error, "meta must be a map"}
+    end
   end
 
-  # -------------- digraph vgraph ------------------
+
+  # ----------------- graph exploration ------------------ 
 
   def edge_vertices(graph, edge) do
     # returns the vertices of an edge
     {_, v1, v2, _} = :digraph.edge(graph, edge)
     {v1, v2}
-  end
-
-
-  def expand_graph(graph, tsnodes) do
-    # given sorted tsnodes, extend graph with them
-    Enum.map(tsnodes, fn tsnode ->
-      case tsnode do
-        {v, _parent, _ts, :vertex, vmeta} ->
-          :digraph.add_vertex(graph, v, vmeta)
-        {v, parent, _ts, :vertedge, vmeta, emeta} ->
-          :digraph.add_vertex(graph, v, vmeta)
-          :digraph.add_edge(graph, parent, v, emeta)
-        {v, parent, _ts, :edge, emeta} ->
-          :digraph.add_edge(graph, parent, v, emeta)
-        {v, parent, _ts, :deledge} ->
-          :digraph.del_path(graph, parent, v)
-      end
-    end)
-    graph
   end
 
 
