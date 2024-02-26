@@ -203,12 +203,16 @@ defmodule TestDag do
   end
 
   
-  test "add_edges" do
+  test "edges_have_fields_and_tickers" do
     # TODO see if this works with {:ok, {d, g}, f} instead of just g
     {:ok, {d, g}, f} = Blxx.Dag.DagExperiments.fx_with_sources()
     edges = :digraph.out_edges(g, :blp)
-    assert Enum.all?(Enum.map(edges, fn e -> :digraph.edge(g, e) |> elem(3) |> Map.has_key?(:fields) end))
-    assert Enum.all?(Enum.map(edges, fn e -> :digraph.edge(g, e) |> elem(3) |> Map.has_key?(:ticker) end))
+    assert Enum.all?(Enum.map(edges, fn e -> :digraph.edge(g, e) 
+      |> elem(3) 
+      |> Map.has_key?(:fields) end))
+    assert Enum.all?(Enum.map(edges, fn e -> :digraph.edge(g, e) 
+      |> elem(3) 
+      |> Map.has_key?(:ticker) end))
     Blxx.Dag.close_store({d, g})
   end
 
@@ -229,11 +233,14 @@ defmodule TestDag do
     Blxx.Dag.close_store({d, g})
   end
 
-  test "add_new_edges" do
+
+  test "no_add_duplicate_edge" do
+    {:ok, {d, g}, f} = Blxx.Dag.DagExperiments.fx_with_sources()
+    Blxx.Dag.close_store({d, g})
+    {:ok, {d, g}} = Blxx.Dag.open_store(f)
+    result = Blxx.Dag.add_edge({d, g}, :blp, :USDBRL,  %{ticker: "USDBRL Curncy", fields: ["LAST_PRICE"]})
+    assert result == {:error, "edge already exists from parent"}
   end
 
-
-  # TODO check of adding any existing children to existing parent fails
-    
     
 end
