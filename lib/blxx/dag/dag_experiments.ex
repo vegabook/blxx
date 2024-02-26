@@ -1,5 +1,6 @@
 defmodule Blxx.Dag.DagExperiments do
 
+
   def fileman(
         name \\ (Blxx.Util.utc_stamp() |> to_string) <> ".dets",
         dir \\ "/tmp"
@@ -13,39 +14,40 @@ defmodule Blxx.Dag.DagExperiments do
     {:ok, {d, g}, filepath}
   end
 
+
   def bigdag() do
-    {:ok, {d, g}, _f} = fileman()
-    Blxx.Dag.add_vertex({d, g}, :a, :root, %{a: "a"})
-    Blxx.Dag.add_vertex({d, g}, :b)
-    Blxx.Dag.add_vertex({d, g}, :c, :root, %{oui: "dacord", la: %{"un" =>  1}})
-    Blxx.Dag.add_vertex({d, g}, :d, :a, %{a: "b"})
-    Blxx.Dag.add_vertex({d, g}, :e, :a)
-    Blxx.Dag.add_vertex({d, g}, :f, :a)
-    Blxx.Dag.add_vertex({d, g}, :g, :b)
-    Blxx.Dag.add_vertex({d, g}, :h, :b)
-    Blxx.Dag.add_vertex({d, g}, :i, :b)
-    Blxx.Dag.add_vertex({d, g}, :j, :c, %{yes: "okay", la: %{"deux" => 2}})
-    Blxx.Dag.add_vertex({d, g}, :k, :c)
-    Blxx.Dag.add_vertex({d, g}, :l, :c)
-    Blxx.Dag.add_vertex({d, g}, :m, :d)
-    Blxx.Dag.add_vertex({d, g}, :n, :d)
-    Blxx.Dag.add_vertex({d, g}, :o, :e)
-    Blxx.Dag.add_vertex({d, g}, :p, :e)
-    Blxx.Dag.add_vertex({d, g}, :q, :f)
-    Blxx.Dag.add_vertex({d, g}, :r, :f)
-    Blxx.Dag.add_vertex({d, g}, :s, :g)
-    Blxx.Dag.add_vertex({d, g}, :t, :g)
-    Blxx.Dag.add_vertex({d, g}, :u, :h)
-    Blxx.Dag.add_vertex({d, g}, :v, :h)
-    Blxx.Dag.add_vertex({d, g}, :w, :i)
-    Blxx.Dag.add_vertex({d, g}, :x, :i)
-    Blxx.Dag.add_vertex({d, g}, :y, :j)
-    Blxx.Dag.add_vertex({d, g}, :z, :j)
-    {d, g}
+    {:ok, {d, g}, f} = fileman()
+    Blxx.Dag.add_vertedge({d, g}, :a, :root, %{a: "a"})
+    Blxx.Dag.add_vertedge({d, g}, :b)
+    Blxx.Dag.add_vertedge({d, g}, :c, :root, %{oui: "dacord", la: %{"un" =>  1}})
+    Blxx.Dag.add_vertedge({d, g}, :d, :a, %{a: "b"})
+    Blxx.Dag.add_vertedge({d, g}, :e, :a)
+    Blxx.Dag.add_vertedge({d, g}, :f, :a)
+    Blxx.Dag.add_vertedge({d, g}, :g, :b)
+    Blxx.Dag.add_vertedge({d, g}, :h, :b)
+    Blxx.Dag.add_vertedge({d, g}, :i, :b)
+    Blxx.Dag.add_vertedge({d, g}, :j, :c, %{yes: "okay", la: %{"deux" => 2}})
+    Blxx.Dag.add_vertedge({d, g}, :k, :c)
+    Blxx.Dag.add_vertedge({d, g}, :l, :c)
+    Blxx.Dag.add_vertedge({d, g}, :m, :d)
+    Blxx.Dag.add_vertedge({d, g}, :n, :d)
+    Blxx.Dag.add_vertedge({d, g}, :o, :e)
+    Blxx.Dag.add_vertedge({d, g}, :p, :e)
+    Blxx.Dag.add_vertedge({d, g}, :q, :f)
+    Blxx.Dag.add_vertedge({d, g}, :r, :f)
+    Blxx.Dag.add_vertedge({d, g}, :s, :g)
+    Blxx.Dag.add_vertedge({d, g}, :t, :g)
+    Blxx.Dag.add_vertedge({d, g}, :u, :h)
+    Blxx.Dag.add_vertedge({d, g}, :v, :h)
+    Blxx.Dag.add_vertedge({d, g}, :w, :i)
+    Blxx.Dag.add_vertedge({d, g}, :x, :i)
+    Blxx.Dag.add_vertedge({d, g}, :y, :j)
+    Blxx.Dag.add_vertedge({d, g}, :z, :j)
+    {:ok, {d, g}, f}
   end
 
   def fx() do
-    {:ok, {d, g}, _f} = fileman()
+    {:ok, {d, g}, f} = fileman()
 
     devlist = [
       :USDGBP,
@@ -90,22 +92,22 @@ defmodule Blxx.Dag.DagExperiments do
       :USDCLP,
     ]
 
-    Blxx.Dag.add_vertex({d, g}, :fx, :root, %{:asset_class => "foreign exchange", subscribe: true})
-    Blxx.Dag.add_vertex({d, g}, :dev, :fx, %{:desc => "developed"})
-    Blxx.Dag.add_vertex({d, g}, :emea, :fx, %{:desc => "europe, middle east, africa"})
-    Blxx.Dag.add_vertex({d, g}, :asia, :fx, %{:desc => "asia"})
-    Blxx.Dag.add_vertex({d, g}, :latam, :fx, %{:desc => "latin america"})
-    Blxx.Dag.add_vertices({d, g}, devlist, :dev)
-    Blxx.Dag.add_vertices({d, g}, emealist, :emea)
-    Blxx.Dag.add_vertices({d, g}, asialist, :asia)
-    Blxx.Dag.add_vertices({d, g}, latamlist, :latam)
-    {d, g}
+    Blxx.Dag.add_vertedge({d, g}, :fx, :root, %{:asset_class => "foreign exchange", subscribe: true})
+    Blxx.Dag.add_vertedge({d, g}, :dev, :fx, %{:desc => "developed"})
+    Blxx.Dag.add_vertedge({d, g}, :emea, :fx, %{:desc => "europe, middle east, africa"})
+    Blxx.Dag.add_vertedge({d, g}, :asia, :fx, %{:desc => "asia"})
+    Blxx.Dag.add_vertedge({d, g}, :latam, :fx, %{:desc => "latin america"})
+    Blxx.Dag.add_vertedges({d, g}, devlist, :dev)
+    Blxx.Dag.add_vertedges({d, g}, emealist, :emea)
+    Blxx.Dag.add_vertedges({d, g}, asialist, :asia)
+    Blxx.Dag.add_vertedges({d, g}, latamlist, :latam)
+    {:ok, {d, g}, f}
   end
 
   def fx_with_sources do
     # add a :blp source node and link it to all the fx nodes
-    {d, g} = fx()
-    Blxx.Dag.add_vertex({d, g}, :blp, :root, %{:source_name => "bloomberg"})
+    {:ok, {d, g}, f} = fx()
+    Blxx.Dag.add_vertedge({d, g}, :blp, :root, %{:source_name => "bloomberg"})
     Blxx.Dag.add_edge({d, g}, :blp, :USDGBP, %{ticker: "USDGBP Curncy", fields: ["LAST_PRICE"]})
     Blxx.Dag.add_edge({d, g}, :blp, :USDCHF, %{ticker: "USDCHF Curncy", fields: ["LAST_PRICE"]})
     Blxx.Dag.add_edge({d, g}, :blp, :USDCAD, %{ticker: "USDCAD Curncy", fields: ["LAST_PRICE"]})
@@ -137,19 +139,14 @@ defmodule Blxx.Dag.DagExperiments do
     Blxx.Dag.add_edge({d, g}, :blp, :USDCOP, %{ticker: "USDCOP Curncy", fields: ["LAST_PRICE"]})
     Blxx.Dag.add_edge({d, g}, :blp, :USDPEN, %{ticker: "USDPEN Curncy", fields: ["LAST_PRICE"]})
     Blxx.Dag.add_edge({d, g}, :blp, :USDCLP, %{ticker: "USDCLP Curncy", fields: ["LAST_PRICE"]})
-    {d, g}
+    {:ok, {d, g}, f}
   end
 
   def fx_change_source do
-    {d, g} = fx_with_sources()
+    {:ok, {d, g}, f} = fx_with_sources()
     Blxx.Dag.add_edge({d, g}, :blp, :USDGBP, %{ticker: "USDGBP Curncy", fields: ["BID", "ASK"]})
-    {d, g}
+    {:ok, {d, g}, f}
+
   end
-
-
-
-
-
-
 
 end

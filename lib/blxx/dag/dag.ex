@@ -48,12 +48,9 @@ defmodule Blxx.Dag do
     detspath |> to_string |> open_store
   end
 
-  def close_store(dg) when is_tuple(dg) and tuple_size(dg) == 2 do
-    {detspath, _graph} = dg
-    :dets.close(detspath)
-  end
 
-  def close_store(detspath) when is_binary(detspath) do #string
+  def close_store({detspath, graph}) do
+    :digraph.delete(graph)
     :dets.close(detspath)
   end
 
@@ -95,7 +92,7 @@ defmodule Blxx.Dag do
   end
 
 
-  def add_vertex({detspath, graph}, 
+  def add_vertedge({detspath, graph}, 
     v, 
     parent \\ :root, 
     vmeta \\ %{}, 
@@ -130,10 +127,15 @@ defmodule Blxx.Dag do
   end
 
 
-  def add_vertices({detspath, graph}, 
+  @doc """
+  Add a list of vertices to the vstore and graph. You may pass anonymous functions
+  to add metadata to the vertices and edges.
+  """
+  def add_vertedges({detspath, graph}, 
     vlist, 
     parent, 
-    metafun \\ fn _ -> %{} end,
+    vmetafun \\ fn _ -> %{} end,
+    emetafun \\ fn _ -> %{} end,
     ts \\ Blxx.Util.utc_stamp()) do
     # add a list of vertices to the vstore and graph
     # metafun is a function that takes a vertex and returns a map
@@ -142,8 +144,7 @@ defmodule Blxx.Dag do
       List.foldl(vlist, {:ok, {detspath, graph}}, fn v, acc ->
         case acc do
           {:ok, {detspath, graph}} ->
-            add_vertex({detspath, graph}, v, parent, metafun.(v), %{}, ts)
-
+            add_vertedge({detspath, graph}, v, parent, vmetafun.(v), emetafun.(v), ts)
           {:error, reason} ->
             {:error, reason}
         end
@@ -154,10 +155,13 @@ defmodule Blxx.Dag do
     end
   end
 
-
+  @doc """
+  Add an edge to the graph. Will not allow duplicate edges between 
+  existing nodes. 
+  """
   def add_edge({detspath, graph}, parent, child, meta \\ {}, ts \\ Blxx.Util.utc_stamp()) do
-    # store an edge in the vstore and add it to the graph
-    # atomic like atomic_vedge but with no vertex insert
+    # store an edge in the vstore and add it to the graph.
+
     with {:tsnum, true} <- {:tsnum, is_number(ts)},
          {:novdupe, true} <-
            {:novdupe, !Enum.member?(:digraph.out_neighbours(graph, parent), child)} do
@@ -182,6 +186,29 @@ defmodule Blxx.Dag do
     else
       {:tsnum, false} -> {:error, "timestamp must be a number"}
       {:novdupe, false} -> {:error, "edge already exists from parent"}
+    end
+  end
+ 
+  @doc """
+  Add a bunch of edges to a graph from a parent to a list of children. 
+  Note that this will fail if any of the children already have an edge from the parent.
+  """
+  def add_edges({detspath, graph}, 
+    parent, 
+    children, 
+    emetafun \\ fn _ -> %{} end,
+    ts \\ Blxx.Util.utc_stamp()) do
+    with {:clist, true} <- {:clist, is_list(children)} do
+      List.foldl(children, {:ok, {detspath, graph}}, fn c, acc ->
+        case acc do
+          {:ok, {detspath, graph}} ->
+            add_edge({detspath, graph}, parent, c, emetafun.(c), ts)
+          {:error, reason} -> {:error, reason}
+        end
+      end)
+    else
+      {:clist, false} ->
+        {:error, "children must be a list"}
     end
   end
 
@@ -217,29 +244,22 @@ defmodule Blxx.Dag do
 
   def expand_graph(graph, tsnodes) do
     # given sorted tsnodes, extend graph with them
-    Enum.map(tsnodes, fn {v, parent, _ts, type, meta} ->
-      case type do
-        :vertex ->
-          :digraph.add_vertex(graph, v, meta)
-
-        :vertedge ->
-          :digraph.add_vertex(graph, v, meta)
-          :digraph.add_edge(graph, parent, v)
-
-        :edge ->
-          :digraph.add_edge(graph, parent, v)
-
-        :deledge ->
+    Enum.map(tsnodes, fn tsnode ->
+      case tsnode do
+        {v, _parent, _ts, :vertex, vmeta} ->
+          :digraph.add_vertex(graph, v, vmeta)
+        {v, parent, _ts, :vertedge, vmeta, emeta} ->
+          :digraph.add_vertex(graph, v, vmeta)
+          :digraph.add_edge(graph, parent, v, emeta)
+        {v, parent, _ts, :edge, emeta} ->
+          :digraph.add_edge(graph, parent, v, emeta)
+        {v, parent, _ts, :deledge} ->
           :digraph.del_path(graph, parent, v)
-
-        :delsubtree ->
-          nil
-          # TODO
       end
     end)
-
     graph
   end
+
 
   @doc """
   gets all the leaves of a graph, optionally starting somewhere
@@ -273,6 +293,7 @@ defmodule Blxx.Dag do
   def inters(graph, root) when is_atom(root) do
     inters(graph, [root])
   end
+
 
   @doc """
   recursive subtree of a graph with starting node root
