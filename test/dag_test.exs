@@ -193,6 +193,25 @@ defmodule TestDag do
     assert Enum.all?(Enum.map(edges, fn e -> :digraph.edge(g, e) |> elem(3) |> Map.has_key?(:ticker) end))
   end
 
+  test "change_edge" do
+    {d, g} = Blxx.Dag.DagExperiments.fx_with_sources()
+    brledge = :digraph.out_edges(g, :blp) 
+      |> Enum.map(fn e -> :digraph.edge(g, e) end) 
+      |> Enum.filter(fn e -> e |> elem(2) == :USDBRL end)
+      |> Enum.at(0)
+      |> elem(0)
+    :digraph.add_edge(g, brledge, :blp, :USDBRL, %{new_meta: "this is new meta"}) 
+    brlmeta = :digraph.out_edges(g, :blp) 
+      |> Enum.map(fn e -> :digraph.edge(g, e) end) 
+      |> Enum.filter(fn e -> e |> elem(2) == :USDBRL end)
+      |> Enum.at(0)
+      |> elem(3)
+    assert brlmeta == %{new_meta: "this is new meta"}
+  end
+    
+    
+
+
 
 
 
