@@ -18,33 +18,34 @@ defmodule Blxx.Dag.DagExperiments do
 
   def bigdag() do
     {:ok, {d, g}, f} = fileman()
-    Blxx.Dag.add_vertedge({d, g}, :a, :root, %{a: "a"})
-    Blxx.Dag.add_vertedge({d, g}, :b)
-    Blxx.Dag.add_vertedge({d, g}, :c, :root, %{oui: "dacord", la: %{"un" =>  1}})
-    Blxx.Dag.add_vertedge({d, g}, :d, :a, %{a: "b"})
-    Blxx.Dag.add_vertedge({d, g}, :e, :a)
-    Blxx.Dag.add_vertedge({d, g}, :f, :a)
-    Blxx.Dag.add_vertedge({d, g}, :g, :b)
-    Blxx.Dag.add_vertedge({d, g}, :h, :b)
-    Blxx.Dag.add_vertedge({d, g}, :i, :b)
-    Blxx.Dag.add_vertedge({d, g}, :j, :c, %{yes: "okay", la: %{"deux" => 2}})
-    Blxx.Dag.add_vertedge({d, g}, :k, :c)
-    Blxx.Dag.add_vertedge({d, g}, :l, :c)
-    Blxx.Dag.add_vertedge({d, g}, :m, :d)
-    Blxx.Dag.add_vertedge({d, g}, :n, :d)
-    Blxx.Dag.add_vertedge({d, g}, :o, :e)
-    Blxx.Dag.add_vertedge({d, g}, :p, :e)
-    Blxx.Dag.add_vertedge({d, g}, :q, :f)
-    Blxx.Dag.add_vertedge({d, g}, :r, :f)
-    Blxx.Dag.add_vertedge({d, g}, :s, :g)
-    Blxx.Dag.add_vertedge({d, g}, :t, :g)
-    Blxx.Dag.add_vertedge({d, g}, :u, :h)
-    Blxx.Dag.add_vertedge({d, g}, :v, :h)
-    Blxx.Dag.add_vertedge({d, g}, :w, :i)
-    Blxx.Dag.add_vertedge({d, g}, :x, :i)
-    Blxx.Dag.add_vertedge({d, g}, :y, :j)
-    Blxx.Dag.add_vertedge({d, g}, :z, :j)
-    {:ok, {d, g}, f}
+    [Blxx.Dag.make_vertex(:a, :root, %{a: "a"}),
+     Blxx.Dag.make_vertex(:b),
+     Blxx.Dag.make_vertex(:c, :root, %{oui: "dacord", la: %{"un" =>  1}}),
+     Blxx.Dag.make_vertex(:d, :a, %{a: "b"}),
+     Blxx.Dag.make_vertex(:e, :a),
+     Blxx.Dag.make_vertex(:f, :a),
+     Blxx.Dag.make_vertex(:g, :b),
+     Blxx.Dag.make_vertex(:h, :b),
+     Blxx.Dag.make_vertex(:i, :b),
+     Blxx.Dag.make_vertex(:j, :c, %{yes: "okay", la: %{"deux" => 2}}),
+     Blxx.Dag.make_vertex(:k, :c),
+     Blxx.Dag.make_vertex(:l, :c),
+     Blxx.Dag.make_vertex(:m, :d),
+     Blxx.Dag.make_vertex(:n, :d),
+     Blxx.Dag.make_vertex(:o, :e),
+     Blxx.Dag.make_vertex(:p, :e),
+     Blxx.Dag.make_vertex(:q, :f),
+     Blxx.Dag.make_vertex(:r, :f),
+     Blxx.Dag.make_vertex(:s, :g),
+     Blxx.Dag.make_vertex(:t, :g),
+     Blxx.Dag.make_vertex(:u, :h),
+     Blxx.Dag.make_vertex(:v, :h),
+     Blxx.Dag.make_vertex(:w, :i),
+     Blxx.Dag.make_vertex(:x, :i),
+     Blxx.Dag.make_vertex(:y, :j),
+     Blxx.Dag.make_vertex(:z, :j)] 
+    |> IO.inspect() 
+    |> Blxx.Dag.commit(d, g)
   end
 
   def fx() do
