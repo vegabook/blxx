@@ -93,16 +93,26 @@ defmodule Blxx.Dag.DagExperiments do
       :USDPEN,
       :USDCLP,
     ]
-
-    Blxx.Dag.add_vertedge({d, g}, :fx, :root, %{:asset_class => "foreign exchange", subscribe: true})
-    Blxx.Dag.add_vertedge({d, g}, :dev, :fx, %{:desc => "developed"})
-    Blxx.Dag.add_vertedge({d, g}, :emea, :fx, %{:desc => "europe, middle east, africa"})
-    Blxx.Dag.add_vertedge({d, g}, :asia, :fx, %{:desc => "asia"})
-    Blxx.Dag.add_vertedge({d, g}, :latam, :fx, %{:desc => "latin america"})
-    Blxx.Dag.add_vertedges({d, g}, devlist, :dev)
-    Blxx.Dag.add_vertedges({d, g}, emealist, :emea)
-    Blxx.Dag.add_vertedges({d, g}, asialist, :asia)
-    Blxx.Dag.add_vertedges({d, g}, latamlist, :latam)
+    
+    {:ok, g} = 
+      [Blxx.Dag.make_vertex(:fx, :root, %{:asset_class => "foreign exchange", subscribe: true}),
+       Blxx.Dag.make_vertex(:dev, :fx, %{:desc => "developed"}),
+       Blxx.Dag.make_vertex(:emea, :fx, %{:desc => "europe, middle east, africa"}),
+       Blxx.Dag.make_vertex(:asia, :fx, %{:desc => "asia"}),
+       Blxx.Dag.make_vertex(:latam, :fx, %{:desc => "latin america"})]
+      |> Blxx.Dag.commit(d, g)
+    {:ok, g} = 
+      Enum.map(devlist, fn x -> Blxx.Dag.make_vertex(x, :dev, %{}) end) 
+      |> Blxx.Dag.commit(d, g)
+    {:ok, g} = 
+      Enum.map(emealist, fn x -> Blxx.Dag.make_vertex(x, :emea, %{}) end) 
+      |> Blxx.Dag.commit(d, g)
+    {:ok, g} = 
+      Enum.map(asialist, fn x -> Blxx.Dag.make_vertex(x, :asia, %{}) end) 
+      |> Blxx.Dag.commit(d, g)
+    {:ok, g} = 
+      Enum.map(latamlist, fn x -> Blxx.Dag.make_vertex(x, :latam, %{}) end) 
+      |> Blxx.Dag.commit(d, g)
     {:ok, {d, g}, f}
   end
 

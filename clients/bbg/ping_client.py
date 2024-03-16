@@ -31,6 +31,8 @@ async def ping_forever():
         key = getKey(private = False,
                      keypath = None).public_numbers().n
         uri = URLMASK.format("blxx", key)
+    else:
+        uri = str(args.uri)
     print(f"Connecting to {uri}")
     async with websockets.connect(uri = uri) as websocket:
         while True:

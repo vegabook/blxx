@@ -59,13 +59,19 @@ defmodule Blxx.Dag do
     :dets.foldl(fn elem, acc -> [elem | acc] end, [], detspath)
   end
 
+  def graph_hash_fun(vertex) do
+    # hash the vertex to a unique identifier, because otherwise
+    # run into major libgraph bug where phash does not provide enough hash width
+    :crypto.hash(:sha256, :erlang.term_to_binary(vertex))
+  end
+
 
   def clean_nodes(detspath) do
     # remove all vertices, vertedges, and edges from the vstore
     # and add a root node
     :dets.delete_all_objects(detspath)
     root = {:root, None, Blxx.Util.utc_stamp(), :addroot, %{}}
-    {:ok, graph} = commit([root], detspath, Graph.new())
+    {:ok, graph} = commit([root], detspath, Graph.new(vertex_identifier: &graph_hash_fun/1))
     {:ok, {detspath, graph}}
   end
 
@@ -73,75 +79,81 @@ defmodule Blxx.Dag do
 
   defp node_sort_score(tsnode) do
   # used to sort so that vertices come first, then edges, then deledges
-    # first score each possible vertact in order from 0..n using a map and get the score
     score_add = list_vertacts() |> Enum.with_index |> Map.new |> Map.get(elem(tsnode, 3)) 
     # sort by timestamp, then by score, and invert because we will recurse
-    -(elem(tsnode, 2) * 10 + score_add)
+    elem(tsnode, 2) * 10 + score_add
   end
 
-  defp sort_nodes_reverse(tsnodes) do
-    Enum.sort_by(tsnodes, &node_sort_score/1)
-  end
 
-  defp expand_graph_sorted(graph, []), do: {:ok, graph}
-
-  defp expand_graph_sorted(graph, tsnodes) do
-    # given sorted tsnodes, extend graph with them
-    [first | rest] = tsnodes
-    case expand_graph(graph, rest) do
-      {:ok, graph} -> 
-        case first do
-          # TODO with clauses here
-          {v, p, ts, :addroot, meta} -> 
-            newgraph = graph 
-              |> Graph.add_vertex(v, meta)
-            {:ok, newgraph}
-          {v, p, ts, :addvertex, meta, emeta} -> 
-            newgraph = graph 
-              |> Graph.add_vertex(v, meta)
-              |> Graph.add_edge(p, v, emeta)
-            {:ok, newgraph}
-          {v, p, ts, :addedge, emeta} -> 
-            IO.puts ":addedge @{Blxx.Util.utc_stamp()}"
-            newgraph = graph |> Graph.add_edge(p, v, emeta)
-            {:ok, newgraph}
-          {v, p, ts, :deledge} -> 
-            IO.puts ":deledge @{Blxx.Util.utc_stamp()}"
-            newgraph = graph |> Graph.del_edge(p, v)
-            {:ok, newgraph}
-          {v, p, ts, :delvertex} ->
-            IO.puts ":delvertex @{Blxx.Util.utc_stamp()}"
-            newgraph = graph |> Graph.del_vertex(v)
-            {:ok, newgraph}
-          {v, _, _, :chgmeta, newmeta} -> 
-            IO.puts ":chgmeta @{Blxx.Util.utc_stamp()}"
-            newgraph = graph 
-              |> Graph.remove_vertex_labels(v) 
-              |> Graph.label_vertex(v, newmeta)
-            {:ok, newgraph}
-          {v, p, _, :chgemeta, newmeta} ->
-            IO.puts ":chgemeta @{Blxx.Util.utc_stamp()}"
-            {:error, ":chgemeta not yet implemented"}
-          {v, _, _, :delmeta, _} -> 
-            IO.puts ":delmeta @{Blxx.Util.utc_stamp()}"
-            {:error, ":delmeta not yet implemented"}
-          {v, p, _, :delemeta, _} -> 
-            IO.puts ":delemeta @{Blxx.Util.utc_stamp()}"
-            {:error, ":delemeta not yet implemented"}
-        end
-      {:error, reason} -> 
-        IO.puts "failed"
-        IO.puts Blxx.Util.utc_stamp()
-        {:error, [error: reason, type: :recursion_fail]}
+  defp single_tsnode_add(graph, tsnode) do
+    case tsnode do
+      # TODO with clauses here
+      {v, p, ts, :addroot, meta} -> 
+        newgraph = graph 
+          |> Graph.add_vertex(v, meta)
+        {:ok, newgraph}
+      {v, p, ts, :addvertex, meta, emeta} -> 
+        newgraph = graph 
+          |> Graph.add_vertex(v, meta)
+          |> Graph.add_edge(p, v, label: emeta)
+        {:ok, newgraph}
+      {v, p, ts, :addedge, emeta} -> 
+        IO.puts ":addedge @{Blxx.Util.utc_stamp()}"
+        newgraph = graph |> Graph.add_edge(p, v, label: emeta)
+        {:ok, newgraph}
+      {v, p, ts, :deledge} -> 
+        IO.puts ":deledge @{Blxx.Util.utc_stamp()}"
+        newgraph = graph |> Graph.del_edge(p, v)
+        {:ok, newgraph}
+      {v, p, ts, :delvertex} ->
+        IO.puts ":delvertex @{Blxx.Util.utc_stamp()}"
+        newgraph = graph |> Graph.del_vertex(v)
+        {:ok, newgraph}
+      {v, _, _, :chgmeta, newmeta} -> 
+        IO.puts ":chgmeta @{Blxx.Util.utc_stamp()}"
+        newgraph = graph 
+          |> Graph.remove_vertex_labels(v) 
+          |> Graph.label_vertex(v, newmeta)
+        {:ok, newgraph}
+      {v, p, _, :chgemeta, newmeta} ->
+        IO.puts ":chgemeta @{Blxx.Util.utc_stamp()}"
+        {:error, ":chgemeta not yet implemented"}
+      {v, _, _, :delmeta, _} -> 
+        IO.puts ":delmeta @{Blxx.Util.utc_stamp()}"
+        {:error, ":delmeta not yet implemented"}
+      {v, p, _, :delemeta, _} -> 
+        IO.puts ":delemeta @{Blxx.Util.utc_stamp()}"
+        {:error, ":delemeta not yet implemented"}
     end
   end
-  
 
-  @doc """
-  Expand a graph with a list of timestamped nodes (tsnodes).
+  defp expand_graph(graph, tsnodes) do
+
+    # use an enum to expand the graph
+    sorted_nodes = Enum.sort_by(tsnodes, fn tsnode -> node_sort_score(tsnode) end)
+    x = List.foldl(sorted_nodes, {:ok, graph}, fn tsnode, status ->
+      case status do
+        {:ok, graph} -> 
+          single_tsnode_add(graph, tsnode)
+        {:error, reason} -> 
+          {:error, reason}
+      end
+    end)
+    IO.inspect x
+  end
+
+  @doc """ 
+  Commit a list of tsnodes to the detspath, and expand the graph with them.
   """
-  def expand_graph(graph, tsnodes) do
-    expand_graph_sorted(graph, sort_nodes_reverse(tsnodes))
+  def commit(vlist, detspath, graph, expand_fun \\ &expand_graph/2) do
+    # first validate it
+    case expand_fun.(graph, vlist) do
+      {:ok, newgraph} -> 
+        # then commit it
+        :dets.insert(detspath, vlist)
+        {:ok, newgraph}
+      {:error, reason} -> {:error, reason}
+    end
   end
 
 
@@ -218,19 +230,7 @@ defmodule Blxx.Dag do
     ts \\ Blxx.Util.utc_stamp()) do
     {child, parent, ts, :delemeta}
   end 
+ 
 
-  @doc """ 
-  Commit a list of tsnodes to the detspath, and expand the graph with them.
-  """
-  def commit(vlist, detspath, graph) do
-    # first validate it
-    case expand_graph(graph, vlist) do
-      {:ok, newgraph} -> 
-        # then commit it
-        :dets.insert(detspath, vlist)
-        {:ok, newgraph}
-      {:error, reason} -> {:error, reason}
-    end
-  end
 
 end
