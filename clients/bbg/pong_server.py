@@ -16,7 +16,7 @@ async def echo(websocket):
             await websocket.send("pong")
 
 async def main():
-    async with websockets.serve(echo, "", port)
+    async with websockets.serve(echo, "", port):
         await asyncio.Future()  # run forever
 
 if __name__ == "__main__":
