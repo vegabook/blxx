@@ -1,6 +1,12 @@
 defmodule Blxx.Dag.NodeMaker.Curves do
+  @moduledoc """
+  This module reads the csv files in the curve directory and returns a list of
+  keyword lists for each file found
+  """
 
-  # creates nodes for bonds
+  @must_fields [:ID, :ISSUE_DT, :MATURITY, :COUPON, :ID_ISIN, :CALLABLE, 
+    :INFLATION_LINKED_INDICATOR, :CURRENCY]
+  @na_string "N/A"
 
   defp curve_dir do
     # read the curve directory from the config
@@ -32,7 +38,7 @@ defmodule Blxx.Dag.NodeMaker.Curves do
     end)
   end
 
-  defp curve_streams(file_streams) do
+  defp curve_lists(file_streams) do
     # add header and create keyword lists
     file_streams |> Enum.map(fn fs -> 
       [header | lines] = fs
@@ -41,15 +47,35 @@ defmodule Blxx.Dag.NodeMaker.Curves do
     end)
   end
 
-  defp fix_date(bond_keyword_list) do
+  def us_dates_fix(bond_keyword_list) do
     # change from american to european date mm/dd/yyyy to yyyy/mm/dd
     issue_dt = Keyword.get(bond_keyword_list, :ISSUE_DT) 
       |> Blxx.Util.us_string_to_datetime
-    maturity_dt = Keyword.get(bond_keyword_list, :MATURITY_DT)
+    maturity_dt = Keyword.get(bond_keyword_list, :MATURITY)
       |> Blxx.Util.us_string_to_datetime
     Keyword.put(bond_keyword_list, :ISSUE_DT, issue_dt)
-      |> Keyword.put(:MATURITY_DT, maturity_dt)
+      |> Keyword.put(:MATURITY, maturity_dt)
   end
+
+  
+  @doc """
+  validate the curve keyword list for presence of required fields and no NAs
+  """
+  def validate_curve(curve) do
+    # check fied exists
+    bad = List.foldl(@must_fields, [], fn x, acc -> 
+      if Keyword.has_key?(curve, x) do  # has the key?
+        if String.contains?(Keyword.get(curve, x), "#N") do  # is it NA?
+          [x | acc]
+        else
+          acc
+        end
+      else
+        [x | acc]
+      end
+    end)
+  end
+
   
   @doc """
   return a list of tuples of curve names and their data from the csv files
@@ -57,11 +83,13 @@ defmodule Blxx.Dag.NodeMaker.Curves do
   def curves do
     cf = curve_files()
     curve_ids = cf |> curve_names |> Enum.map(fn x -> String.to_atom(x) end)
-    Enum.zip(curve_ids, curve_files() 
+    Enum.zip(curve_ids, curve_files()
       |> file_streams 
-      |> curve_streams 
-      |> IO.inspect()
-      |> Enum.map(fn x -> Enum.map(x, &fix_date/1) end))
+      |> curve_lists 
+      |> Enum.map(fn cl -> Enum.split_with(cl, 
+        fn x -> validate_curve(x) == [] end) end)
+      |> Enum.map(fn {good, bad} -> {Enum.map(good, fn x -> us_dates_fix(x) end), bad} end)
+    )
   end
 
 end
