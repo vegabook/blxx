@@ -53,8 +53,8 @@ defmodule Blxx.MixProject do
       {:plug_cowboy, "~> 2.5"},
       {:msgpax, "~> 2.0"},
       {:gen_stage, "~> 1.0"},
-      {:libgraph, "~> 0.16"}
-
+      {:libgraph, "~> 0.16"},
+      {:csv, "~> 3.2"}
     ]
   end
 

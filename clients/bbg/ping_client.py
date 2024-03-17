@@ -57,4 +57,11 @@ async def ping_forever():
     print(f"Output written to {output_file}")
 
 if __name__ == "__main__":
-    asyncio.run(ping_forever())
+    while True:
+        try:
+            asyncio.run(ping_forever())
+        except Exception as e:
+            print(e)
+            time.sleep(5)
+            continue
+

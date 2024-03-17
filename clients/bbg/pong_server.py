@@ -20,5 +20,11 @@ async def main():
         await asyncio.Future()  # run forever
 
 if __name__ == "__main__":
-    asyncio.run(main())
+    while True:
+        try:
+            asyncio.run(main())
+        except Exception as e:
+            print(e)
+            time.sleep(5)
+            continue
 

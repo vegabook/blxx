@@ -10,9 +10,10 @@ import Config
 config :blxx,
   ecto_repos: [Blxx.Repo]
 
-config :blxx, 
+config :blxx, Blxx.Dag,
   dets_dir: "/home/tbrowne/data/blxx/",
-  graph_dir: "subscriptions/"
+  graph_dir: "subscriptions/",
+  nodes_dir: "priv/curves/"
 
 # Configures the endpoint
 config :blxx, BlxxWeb.Endpoint,

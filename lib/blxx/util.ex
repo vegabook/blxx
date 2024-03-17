@@ -2,8 +2,22 @@ defmodule Blxx.Util do
   @moduledoc """
   Utility functions for Blxx
   """
+  @doc """ 
+  return a microsecond unix timestamp
+  """
   def utc_stamp(stamptime \\ DateTime.utc_now()) do
     stamptime |> DateTime.to_unix(:microsecond)
+  end
+
+
+  @doc """
+  given a string in the format "mm/dd/yyyy" return a DateTime
+  """
+  def us_string_to_datetime(us_string) do
+    IO.inspect(us_string)
+    [m, d, y] = String.split(us_string, "/") 
+      |> Enum.map(fn x -> String.to_integer(x) end)
+    DateTime.new(DateTime.date!(y, m, d), DateTime.time!(0, 0, 0), "Etc/UTC")
   end
 
   
@@ -31,5 +45,7 @@ defmodule Blxx.Util do
   defp deep_resolve(_key, _left, right) do
     right
   end
+
+
 end
 
