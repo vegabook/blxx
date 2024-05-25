@@ -19,14 +19,18 @@ defmodule BlxxWeb.BbgSocket do
     # Callback to retrieve relevant data from the connection.
     # The map contains options, params, transport and endpoint keys.
     IO.puts("Connection requested at #{inspect(DateTime.utc_now())}")
-    allkeys = System.get_env("BLXXKEY")
-    |> String.split(":")
-    if key in allkeys do
-      IO.puts("Key is correct")
-      {:ok, %{id: id}}
-    else
-      IO.puts("Key is not correct")
-      {:error, :unauthorized}
+    allkeys = System.get_env("BLXXKEY", "nein") |> String.split(":")
+    IO.inspect(allkeys)
+    cond do
+      "nein" in allkeys -> 
+        IO.puts("Connection Attempted but cannot find BLXXKEY environment variable")
+        {:error, :unauthorized}
+      key in allkeys -> 
+        IO.puts("Key is correct")
+        {:ok, %{id: id}}
+      key not in allkeys ->   
+        IO.puts("Key is not correct")
+        {:error, :unauthorized}
     end
   end
 
