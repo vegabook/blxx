@@ -17,6 +17,7 @@ import os
 from sockauth import getKey
 from collections import deque
 import struct
+import IPython
 
 from util.SubscriptionOptions import \
     addSubscriptionOptions, \
@@ -104,7 +105,7 @@ def parseCmdLine():
         "-q",
         "--event-queue-size",
         dest="eventQueueSize",
-        help="The maximum number of events that is buffered by the session (default: %(default)d)",
+        help="The maximum number of events that is buffered by the session", 
         type=int,
         metavar="eventQueueSize",
         default=DEFAULT_QUEUE_SIZE)
@@ -119,6 +120,11 @@ def parseCmdLine():
         action="store_true",
         help=("Show public key in numeric format for auth. "
               "Must be put in BLXXKEY env variable on server"),
+        default=False)
+    parser.add_argument(
+        "--interactive",
+        action="store_true",
+        help=("Don't start the asyncio loop, just drop into an IPython shell. "),
         default=False)
     options = parser.parse_args()
     options.options.append(f"interval={DEFAULT_INTERVAL}")
@@ -765,6 +771,8 @@ if __name__ == "__main__":
     if options.showkey:
         print(getKey(private = False, 
                      keypath = options.keypath).public_numbers().n)
+    elif options.interactive:
+        IPython.embed()
     else:
         asyncio.run(main())
 
