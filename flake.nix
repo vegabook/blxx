@@ -15,8 +15,9 @@
         devShells.default = mkShell {
           buildInputs = [
             erlangR25
-            beam.packages.erlangR26.elixir_1_15
+            beam.packages.erlangR25.elixir_1_15
             nodejs
+            rebar3
           ]
           ++ lib.optionals stdenv.isLinux [
             # For ExUnit Notifier on Linux.
